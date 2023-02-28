@@ -24,6 +24,7 @@ struct FileLineIterator {
     LineIterator * lines;
     const char * filename;
     const char * mode;
+    enum iterator_status stop;
 };
 
 // the context manager/callers owns closing the FILE handle _h
@@ -69,6 +70,8 @@ FileLineIterator * FileLineIterator_iter(const char * filename) {
 void FileLineIterator_init(FileLineIterator * file_iter, const char * filename, const char * mode, size_t next_buf_size) {
     file_iter->filename = filename;
     file_iter->mode = mode;
+    // file_iter->lines->stop is only assigned 2x...during initialization and during call to LineIterator_next
+    file_iter->stop = file_iter->lines->stop;
 
     // LineIterator_init is done implicitly in FileLineIterator_new
     // LineIterator_init(file_iter->lines, fopen(filename, mode), LINE_BUFFER_SIZE);
@@ -82,18 +85,22 @@ void FileLineIterator_del(FileLineIterator * file_iter) {
 }
 
 char * FileLineIterator_next(FileLineIterator * file_iter) {
-    return LineIterator_next(file_iter->lines);
+    char * next = LineIterator_next(file_iter->lines);
+    // file_iter->lines->stop is only assigned 2x...during initialization and during call to LineIterator_next
+    file_iter->stop = file_iter->lines->stop;
+    return next;
 };
 
 // no additional initialization necessary so FileLineIterator_start is an alias for FileLineIterator_next
 char * (*FileLineIterator_start) (FileLineIterator *) = FileLineIterator_next;
 
 enum iterator_status FileLineIterator_stop(FileLineIterator * file_iter) {
-    if (file_iter->lines->stop == ITERATOR_STOP) {
+    // used file_iter->lines->stop, but after update to have file_iter->stop track this value, should be equivalent
+    if (file_iter->stop == ITERATOR_STOP) {
         FileLineIterator_del(file_iter);
         return ITERATOR_STOP;
     }
-    return file_iter->lines->stop;
+    return file_iter->stop;
 }
 
 LineIterator * LineIterator_new(FILE * fstr, size_t next_buf_size) {

@@ -7,7 +7,8 @@ explicit signatures. Such OBJECTs are called ITERABLE
 
 structs:
 OBJECTIterator {
-    // opaque
+    enum iterator_status stop; // this is required for the enumerate functionality
+    // rest of struct is opaque
 }
 
 functions:
@@ -94,8 +95,14 @@ for (insttype * inst = (insttype *) objtype##Iterator_start(objtype##_##inst##_i
 */
 
 // variadic argument are the arguments in available constructors
-#define for_each(insttype, inst, objtype, ...)								                                \
-objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_constructor(__VA_ARGS__);	        \
+// creates an iterator 
+#define for_each(insttype, inst, objtype, ...)								                \
+objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_constructor(__VA_ARGS__);	\
 for (insttype * inst = (insttype *) objtype##Iterator_start(objtype##_##inst##_iter); !objtype##Iterator_stop(objtype##_##inst##_iter); inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
+
+#define for_each_enumerate(insttype, inst, objtype, ...)                                    \
+objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_constructor(__VA_ARGS__);	\
+for (struct {size_t i; insttype * val;} inst = { 0, (insttype *) objtype##Iterator_start(objtype##_##inst##_iter)}; !objtype##Iterator_stop(objtype##_##inst##_iter); inst.i++, inst.val = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
+
 
 #endif // ITERATORS_H
