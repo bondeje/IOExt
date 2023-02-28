@@ -1,23 +1,17 @@
 /*
-TODO: in the for_each macro, include a variadic to allow full configuration of the iterator
-
 Requirements: In order to use the facilities in this header, it is assumed that for a given OBJECT
 type with elements of type TYPE, the following structures and functions are defined with the 
 explicit signatures. Such OBJECTs are called ITERABLE
 
 structs:
 OBJECTIterator {
-    enum iterator_status stop; // this is required for the enumerate functionality
     // rest of struct is opaque
 }
 
 functions:
 // required for for_each
-OBJECTIterator * OBJECTIterator_new(variable number of arguments to be supplied) {
+OBJECTIterator * OBJECTIterator_iter(variable number of arguments to be supplied) {
     // allocates the memory for the OBJECTITerator
-}
-TYPE * OBJECTIterator_start(OBJECTIterator * obj_iter) {
-    // returns the first element of the ITERABLE OBJECT and completes initialization of any bookkeeping
 }
 TYPE * OBJECTIterator_next(OBJECTIterator * obj_iter) {
     // returns the subsequent elements (one at a time) of the ITERABLE OBJECT
@@ -62,7 +56,7 @@ for example, the standard conditions above work with all the standard constructi
 
 ObjectIterator * obj_iter_instance = ObjectIterator_simple(obj_to_iterate);
 
-ElementType element_instance = ObjectIterator_start(obj_iter_instance);
+ElementType element_instance = ObjectIterator_next(obj_iter_instance);
 while (!ObjectIterator_stop(obj_iter_instance)) {
     element_instance = ObjectIterator_next(obj_iter_instance)
 }
@@ -77,8 +71,14 @@ but say you want to change the point at which the stop condition is checked, e.g
 
 */
 
+#include <stdio.h>
+
 #ifndef ITERATORS_H
 #define ITERATORS_H
+
+#ifndef LINE_BUFFER_SIZE
+#define LINE_BUFFER_SIZE BUFSIZ
+#endif // LINE_BUFFER_SIZE
 
 enum iterator_status {
     ITERATOR_FAIL = -1,
@@ -88,21 +88,15 @@ enum iterator_status {
 };
 
 // The combination (objtype, inst) must be unique within a local scope
-/*
-#define for_each(insttype, inst, objtype, obj)								            \
-objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_iter(obj);	        \
-for (insttype * inst = (insttype *) objtype##Iterator_start(objtype##_##inst##_iter); !objtype##Iterator_stop(objtype##_##inst##_iter); inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
-*/
-
 // variadic argument are the arguments in available constructors
-// creates an iterator 
 #define for_each(insttype, inst, objtype, ...)								                \
-objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_constructor(__VA_ARGS__);	\
-for (insttype * inst = (insttype *) objtype##Iterator_start(objtype##_##inst##_iter); !objtype##Iterator_stop(objtype##_##inst##_iter); inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
+objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_iter(__VA_ARGS__);	\
+for (insttype * inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter); objtype##_##inst##_iter && !objtype##Iterator_stop(objtype##_##inst##_iter); inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
 
+// The combination (objtype, inst) must be unique within a local scope as well as inst itself as a variable
+// variadic argument are the arguments in available constructors
 #define for_each_enumerate(insttype, inst, objtype, ...)                                    \
-objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_constructor(__VA_ARGS__);	\
-for (struct {size_t i; insttype * val;} inst = { 0, (insttype *) objtype##Iterator_start(objtype##_##inst##_iter)}; !objtype##Iterator_stop(objtype##_##inst##_iter); inst.i++, inst.val = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
-
+objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_iter(__VA_ARGS__);	\
+for (struct {size_t i; insttype * val;} inst = { 0, (insttype *) objtype##Iterator_next(objtype##_##inst##_iter)}; objtype##_##inst##_iter && !objtype##Iterator_stop(objtype##_##inst##_iter); inst.i++, inst.val = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
 
 #endif // ITERATORS_H

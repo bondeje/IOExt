@@ -2,13 +2,6 @@
 #include <string.h>
 #include "IOExt.h"
 
-#ifndef LINE_BUFFER_SIZE
-#define LINE_BUFFER_SIZE BUFSIZ
-#endif // LINE_BUFFER_SIZE
-
-#define DEFAULT_READ_MODE "rb"
-#define DEFAULT_WRITE_MODE "wb"
-
 #if defined(Macintosh)
     #define LINE_ENDING "\r"
     #define HAS_LINE_FEED 0
@@ -19,21 +12,6 @@
     #define LINE_ENDING "\n"
     #define HAS_LINE_FEED 1
 #endif // LINE_ENDING definitions
-
-struct FileLineIterator {
-    LineIterator * lines;
-    const char * filename;
-    const char * mode;
-    enum iterator_status stop;
-};
-
-// the context manager/callers owns closing the FILE handle _h
-struct LineIterator {
-    FILE * _h;
-    unsigned char * next;
-    size_t next_buf_size;
-    enum iterator_status stop;
-};
 
 FileLineIterator * FileLineIterator_new(const char * filename, const char * mode, size_t next_buf_size) {
     FileLineIterator * file_iter = (FileLineIterator *) IO_MALLOC(sizeof(FileLineIterator));
@@ -59,19 +37,17 @@ FileLineIterator * FileLineIterator_new(const char * filename, const char * mode
     return file_iter;
 }
 
-FileLineIterator * FileLineIterator_iter_mode(const char * filename, const char * mode) {
+FileLineIterator * FileLineIterator_iter2(const char * filename, const char * mode) {
     return FileLineIterator_new(filename, mode, LINE_BUFFER_SIZE);
 }
 
-FileLineIterator * FileLineIterator_iter(const char * filename) {
+FileLineIterator * FileLineIterator_iter1(const char * filename) {
     return FileLineIterator_new(filename, DEFAULT_READ_MODE, LINE_BUFFER_SIZE);
 }
 
 void FileLineIterator_init(FileLineIterator * file_iter, const char * filename, const char * mode, size_t next_buf_size) {
     file_iter->filename = filename;
     file_iter->mode = mode;
-    // file_iter->lines->stop is only assigned 2x...during initialization and during call to LineIterator_next
-    file_iter->stop = file_iter->lines->stop;
 
     // LineIterator_init is done implicitly in FileLineIterator_new
     // LineIterator_init(file_iter->lines, fopen(filename, mode), LINE_BUFFER_SIZE);
@@ -85,22 +61,16 @@ void FileLineIterator_del(FileLineIterator * file_iter) {
 }
 
 char * FileLineIterator_next(FileLineIterator * file_iter) {
-    char * next = LineIterator_next(file_iter->lines);
-    // file_iter->lines->stop is only assigned 2x...during initialization and during call to LineIterator_next
-    file_iter->stop = file_iter->lines->stop;
-    return next;
+    return LineIterator_next(file_iter->lines);
 };
-
-// no additional initialization necessary so FileLineIterator_start is an alias for FileLineIterator_next
-char * (*FileLineIterator_start) (FileLineIterator *) = FileLineIterator_next;
 
 enum iterator_status FileLineIterator_stop(FileLineIterator * file_iter) {
     // used file_iter->lines->stop, but after update to have file_iter->stop track this value, should be equivalent
-    if (file_iter->stop == ITERATOR_STOP) {
+    if (file_iter->lines->stop == ITERATOR_STOP) {
         FileLineIterator_del(file_iter);
         return ITERATOR_STOP;
     }
-    return file_iter->stop;
+    return file_iter->lines->stop;
 }
 
 LineIterator * LineIterator_new(FILE * fstr, size_t next_buf_size) {
@@ -127,7 +97,7 @@ LineIterator * LineIterator_new(FILE * fstr, size_t next_buf_size) {
     return lines;
 }
 
-LineIterator * LineIterator_iter(FILE * fstr) {
+LineIterator * LineIterator_iter1(FILE * fstr) {
     return LineIterator_new(fstr, LINE_BUFFER_SIZE);
 }
 
@@ -143,6 +113,7 @@ void LineIterator_init(LineIterator * lines, FILE * fstr, size_t next_buf_size) 
 void LineIterator_del(LineIterator * lines) {
     IO_FREE(lines->next);
     lines->next = NULL;
+    IO_FREE(lines);
 }
 
 char * LineIterator_next(LineIterator * lines) {
@@ -156,12 +127,19 @@ char * LineIterator_next(LineIterator * lines) {
     }
     size_t nchar = strlen(lines->next);
     if (!feof(lines->_h) && test[nchar-1] != '\n') { // buffer was not large enough
+        long long int offset;
         // find the minimum size required for the new buffer
         size_t new_buf_size = nchar;
         while (!feof(lines->_h) && (fgetc(lines->_h) != '\n')) {
             new_buf_size++;
         }
-        new_buf_size++; // to accommodate the '\0' line terminator
+        if (feof(lines->_h)) {
+            new_buf_size += 1;
+            offset = -((long long int)new_buf_size - 2); // to accommodate the '\n\0' line terminator
+        } else {
+            new_buf_size += 2;
+            offset = -((long long int)new_buf_size - 1);
+        }
 
         // allocate a new buffier
         char * new_buf = (char *) IO_REALLOC(lines->next, sizeof(char) * new_buf_size);
@@ -179,23 +157,20 @@ char * LineIterator_next(LineIterator * lines) {
         }
 
         // reset file stream back to beginning of current line
-        fseek(lines->_h, -new_buf_size+1, SEEK_CUR); // need to validate that this resets
+        fseek(lines->_h, offset, SEEK_CUR); // need to validate that this resets
 
         return LineIterator_next(lines); // re-try
     }
 
     // if _POSIX
     // getline(&lines->next, &lines->next_buf_size);
-    
+    lines->stop = (!feof(lines->_h)) ? ITERATOR_GO : ITERATOR_STOP; 
 
     // either end of file was encountered or last character is a linefeed. In this case test is lines->next
     return lines->next;   
     
     // additionally need to handle the case of classic MAC? there's no line feed and so fgets fails, but not sure if it has getline()
 }
-
-// no additional initialization necessary so LineIterator_start is an alias for LineIterator_next
-char * (*LineIterator_start) (LineIterator * lines) = LineIterator_next; 
 
 // destroys the LineIterator if stops
 enum iterator_status LineIterator_stop(LineIterator * lines) {
