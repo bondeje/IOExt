@@ -2,6 +2,7 @@
 #include <string.h>
 #include "IOExt.h"
 
+// Platform depending line EOL character sequences
 #if defined(Macintosh)
     #define LINE_ENDING "\r"
     #define HAS_LINE_FEED 0
@@ -13,6 +14,7 @@
     #define HAS_LINE_FEED 1
 #endif // LINE_ENDING definitions
 
+// fully qualified constructor for FileLineIterator object
 FileLineIterator * FileLineIterator_new(const char * filename, const char * mode, size_t next_buf_size) {
     FileLineIterator * file_iter = (FileLineIterator *) IO_MALLOC(sizeof(FileLineIterator));
     if (!file_iter) {
@@ -37,14 +39,17 @@ FileLineIterator * FileLineIterator_new(const char * filename, const char * mode
     return file_iter;
 }
 
+// simple constructor of a FileLineIterator from a filename and read mode, uses default buffer size (stdio.BUF_SIZE)
 FileLineIterator * FileLineIterator_iter2(const char * filename, const char * mode) {
     return FileLineIterator_new(filename, mode, LINE_BUFFER_SIZE);
 }
 
+// simple constructor of a FileLineIterator from only a filename. uses default read mode ("rb") and buffer size (stdio.BUF_SIZE)
 FileLineIterator * FileLineIterator_iter1(const char * filename) {
     return FileLineIterator_new(filename, DEFAULT_READ_MODE, LINE_BUFFER_SIZE);
 }
 
+// initializes all the internal variables of the FileLineIterator object
 void FileLineIterator_init(FileLineIterator * file_iter, const char * filename, const char * mode, size_t next_buf_size) {
     file_iter->filename = filename;
     file_iter->mode = mode;
@@ -53,6 +58,7 @@ void FileLineIterator_init(FileLineIterator * file_iter, const char * filename, 
     // LineIterator_init(file_iter->lines, fopen(filename, mode), LINE_BUFFER_SIZE);
 }
 
+// destroys the FileLineIterator as well as the underlying LineIterator objects
 void FileLineIterator_del(FileLineIterator * file_iter) {
     fclose(file_iter->lines->_h); // FileLineIterator owns the FILE handle
     LineIterator_del(file_iter->lines);
@@ -60,11 +66,19 @@ void FileLineIterator_del(FileLineIterator * file_iter) {
     IO_FREE(file_iter);
 }
 
+// return pointer to the next line of characters, nul terminated
 char * FileLineIterator_next(FileLineIterator * file_iter) {
+    if (!file_iter) {
+        return NULL;
+    }
     return LineIterator_next(file_iter->lines);
 };
 
+// destroys the FileLineIterator if stops and tells caller whether to stop or not
 enum iterator_status FileLineIterator_stop(FileLineIterator * file_iter) {
+    if (!file_iter) {
+        return ITERATOR_STOP;
+    }
     // used file_iter->lines->stop, but after update to have file_iter->stop track this value, should be equivalent
     if (file_iter->lines->stop == ITERATOR_STOP) {
         FileLineIterator_del(file_iter);
@@ -73,6 +87,7 @@ enum iterator_status FileLineIterator_stop(FileLineIterator * file_iter) {
     return file_iter->lines->stop;
 }
 
+// fully qualified LineIterator constructor from file stream and a buffer size
 LineIterator * LineIterator_new(FILE * fstr, size_t next_buf_size) {
     if (!fstr) {
         return NULL;
@@ -97,10 +112,12 @@ LineIterator * LineIterator_new(FILE * fstr, size_t next_buf_size) {
     return lines;
 }
 
+// create a LineIterator from just a file stream
 LineIterator * LineIterator_iter1(FILE * fstr) {
     return LineIterator_new(fstr, LINE_BUFFER_SIZE);
 }
 
+// initializes all the internal variables of the LineIterator
 void LineIterator_init(LineIterator * lines, FILE * fstr, size_t next_buf_size) {
     lines->_h = fstr;
     lines->stop = ITERATOR_GO;
@@ -110,13 +127,18 @@ void LineIterator_init(LineIterator * lines, FILE * fstr, size_t next_buf_size) 
     lines->next_buf_size = next_buf_size;
 }
 
+// destroys the LineIterator object
 void LineIterator_del(LineIterator * lines) {
     IO_FREE(lines->next);
     lines->next = NULL;
     IO_FREE(lines);
 }
 
+// return pointer to the next line of characters, nul terminated
 char * LineIterator_next(LineIterator * lines) {
+    if (!lines) {
+        return NULL;
+    }
     // this is the non-posix version. For posix, use getline() in stdio.h to update LineIterator
     char * test = fgets(lines->next, lines->next_buf_size, lines->_h);
     if (!test) { // fgets failed or EOF is encountered immediately
@@ -141,7 +163,7 @@ char * LineIterator_next(LineIterator * lines) {
             offset = -((long long int)new_buf_size - 1);
         }
 
-        // allocate a new buffier
+        // allocate a new buffer
         char * new_buf = (char *) IO_REALLOC(lines->next, sizeof(char) * new_buf_size);
         if (!new_buf) {
             return NULL; // TODO: CONSIDER: how to handle failures to realloc while failing to capture full line...maybe just proceed as normal?
@@ -164,7 +186,19 @@ char * LineIterator_next(LineIterator * lines) {
 
     // if _POSIX
     // getline(&lines->next, &lines->next_buf_size);
-    lines->stop = (!feof(lines->_h)) ? ITERATOR_GO : ITERATOR_STOP; 
+
+    // update LineIterator->stop
+    /*
+    if (!feof(lines->_h)) {
+        // if feof not set, might not have any more lines to iterate, test the next character
+        lines->stop = (fgetc(lines->_h) == EOF) ? ITERATOR_STOP : ITERATOR_GO;
+        // undo character check
+        fseek(lines->_h, -1, SEEK_CUR);
+    } else {
+        // at EOF
+        lines->stop = ITERATOR_STOP;
+    }
+    */
 
     // either end of file was encountered or last character is a linefeed. In this case test is lines->next
     return lines->next;   
@@ -172,8 +206,11 @@ char * LineIterator_next(LineIterator * lines) {
     // additionally need to handle the case of classic MAC? there's no line feed and so fgets fails, but not sure if it has getline()
 }
 
-// destroys the LineIterator if stops
+// destroys the LineIterator if stops and tells caller whether to stop or not
 enum iterator_status LineIterator_stop(LineIterator * lines) {
+    if (!lines) {
+        return ITERATOR_STOP;
+    }
     if (lines->stop == ITERATOR_STOP) {
         LineIterator_del(lines);
         return ITERATOR_STOP;

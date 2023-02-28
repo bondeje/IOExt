@@ -88,15 +88,15 @@ enum iterator_status {
 };
 
 // The combination (objtype, inst) must be unique within a local scope
-// variadic argument are the arguments in available constructors
+// variadic argument are the arguments in available constructors 
 #define for_each(insttype, inst, objtype, ...)								                \
 objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_iter(__VA_ARGS__);	\
-for (insttype * inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter); objtype##_##inst##_iter && !objtype##Iterator_stop(objtype##_##inst##_iter); inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
+for (insttype * inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter); !objtype##Iterator_stop(objtype##_##inst##_iter); inst = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
 
 // The combination (objtype, inst) must be unique within a local scope as well as inst itself as a variable
 // variadic argument are the arguments in available constructors
 #define for_each_enumerate(insttype, inst, objtype, ...)                                    \
 objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_iter(__VA_ARGS__);	\
-for (struct {size_t i; insttype * val;} inst = { 0, (insttype *) objtype##Iterator_next(objtype##_##inst##_iter)}; objtype##_##inst##_iter && !objtype##Iterator_stop(objtype##_##inst##_iter); inst.i++, inst.val = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
+for (struct {size_t i; insttype * val;} inst = { 0, (insttype *) objtype##Iterator_next(objtype##_##inst##_iter)}; !objtype##Iterator_stop(objtype##_##inst##_iter); inst.i++, inst.val = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
 
 #endif // ITERATORS_H

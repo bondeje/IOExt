@@ -31,10 +31,9 @@ The macros produce an extra level of indirection for both the `Iterable` and its
 
 `Iterable` objects `OBJECT` are those that store some collection of variables of type `TYPE` and have the following minimum functionality defined:
   * `OBJECTIterator` - a struct to hold the state of the `Iterator`.  
-  * `OBJECTIterator * OBJECTIterator_constructor(...)` - a variadic constructor function, usually a macro, to create new instances of `OBJECTITerator`.
-  * `TYPE * = OBJECTIterator_start(OBJECTIterator *)` - a function to define/initialize the first element of the `Iterable` `OBJECT`. Frequently just an alias for `OBJECTIterator_next`.  
+  * `OBJECTIterator * OBJECTIterator_iter(...)` - a variadic constructor function, usually a macro, to create new instances of `OBJECTITerator`.
   * `TYPE * OBJECTIterator_next(OBJECTIterator *)` - a function to provide then next element from the `Iterable` `OBJECT`.
-  * `void OBJECTIterator_del(OBJECTIterator *)` - a function to de-allocate the `OBJECTIterator`.
+  * `enum iterator_status OBJECTIterator_stop(OBJECTIterator *)` - a function to determine whether iteration has ended.
 
 ## Examples
 
