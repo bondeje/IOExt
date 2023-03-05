@@ -19,7 +19,7 @@
 
 #define N_TEST_FILES 5
 
-const char * test_files[N_TEST_FILES] =     { 
+const char * test_line_files[N_TEST_FILES] =     { 
                                             "./data/lines.txt",
                                             "./data/lines_realloc.txt",
                                             "./data/lines_realloc_nolf.txt",
@@ -49,9 +49,9 @@ int test_LineIterator(void) {
     size_t line_count = 0;
     LineIterator * lines = NULL;
     for (int i = 0; i < N_TEST_FILES; i++) {
-        file = fopen(test_files[i], "rb");
+        file = fopen(test_line_files[i], "rb");
         if (file_exists[i]) {
-            ASSERT(file, "\nfailed to open file %s in test_LineLiterator.", test_files[i]);
+            ASSERT(file, "\nfailed to open file %s in test_LineLiterator.", test_line_files[i]);
         }
         line_count = 0;
         if (buf_sizes[i] == LINE_BUFFER_SIZE) {
@@ -68,9 +68,9 @@ int test_LineIterator(void) {
             line = NULL;
             line = LineIterator_next(lines);
             while (lines->stop != ITERATOR_STOP) {
-                ASSERT(line, "\nLineIterator_next failed to return line in test_LineIterator on line %zu in test file %s.", line_count, test_files[i]);
-                ASSERT(lines->next_buf_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_LineIterator for line %zu in test_files %s, expected > %zu, found %zu.", line_count, test_files[i], line_lengths[i][line_count], lines->next_buf_size);
-                ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_LineIterator for line %zu in test file %s, expected %zu, found %zu.", line_count, test_files[i], line_lengths[i][line_count], strlen(line));
+                ASSERT(line, "\nLineIterator_next failed to return line in test_LineIterator on line %zu in test file %s.", line_count, test_line_files[i]);
+                ASSERT(lines->next_buf_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_LineIterator for line %zu in test_line_files %s, expected > %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], lines->next_buf_size);
+                ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_LineIterator for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line));
                 line = NULL;
                 line = LineIterator_next(lines);
                 line_count++;
@@ -79,7 +79,7 @@ int test_LineIterator(void) {
             lines = NULL;
             fclose(file);
         } else {
-            ASSERT(!lines, "\nfailed to retun null LineIterator in test_LineIterator for non-existent file %s.", test_files[i]);
+            ASSERT(!lines, "\nfailed to retun null LineIterator in test_LineIterator for non-existent file %s.", test_line_files[i]);
         }
         ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in the file, expected %zu, found %zu.", n_lines[i], line_count);
         
@@ -99,12 +99,12 @@ int test_FileLineIterator(void) {
     for (int i = 0; i < N_TEST_FILES; i++) {
         line_count = 0;
         if (buf_sizes[i] == LINE_BUFFER_SIZE) {
-            file_iter = FileLineIterator_new(test_files[i], "rb", 0);
+            file_iter = FileLineIterator_new(test_line_files[i], "rb", 0);
         } else {
-            file_iter = FileLineIterator_new(test_files[i], "rb", buf_sizes[i]);
+            file_iter = FileLineIterator_new(test_line_files[i], "rb", buf_sizes[i]);
         }
         if (file_exists[i]) {
-            ASSERT(file_iter, "\nfailed to open file %s in test_FileLineIterator.", test_files[i]);
+            ASSERT(file_iter, "\nfailed to open file %s in test_FileLineIterator.", test_line_files[i]);
             ASSERT(file_iter->lines, "\nfailed to dynamically allocate LineIterator in test_FileLineIterator.");
             ASSERT(file_iter->lines->next_buf_size == buf_sizes[i], "\nfailed to allocate default buffer size %zu in test_FileLineIterator, found %zu", buf_sizes[i], file_iter->lines->next_buf_size);
             ASSERT(strlen(file_iter->lines->next) == 0, "\nfailed to initialize next line to 0-length string, found %zu", strlen(file_iter->lines->next));
@@ -113,18 +113,18 @@ int test_FileLineIterator(void) {
             line = NULL;
             line = FileLineIterator_next(file_iter);
             while (file_iter->lines->stop != ITERATOR_STOP) {
-                ASSERT(line, "\nLineIterator_next failed to return line in test_FileLineIterator on line %zu in test file %s.", line_count, test_files[i]);
-                ASSERT(file_iter->lines->next_buf_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_FileLineIterator for line %zu in test_files %s, expected > %zu, found %zu.", line_count, test_files[i], line_lengths[i][line_count], file_iter->lines->next_buf_size);
-                ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_FileLineIterator for line %zu in test file %s, expected %zu, found %zu.", line_count, test_files[i], line_lengths[i][line_count], strlen(line));
+                ASSERT(line, "\nLineIterator_next failed to return line in test_FileLineIterator on line %zu in test file %s.", line_count, test_line_files[i]);
+                ASSERT(file_iter->lines->next_buf_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_FileLineIterator for line %zu in test_line_files %s, expected > %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], file_iter->lines->next_buf_size);
+                ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_FileLineIterator for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line));
                 line = NULL;
                 line = FileLineIterator_next(file_iter);
                 line_count++;
             }
             FileLineIterator_del(file_iter);
         } else {
-            ASSERT(!file_iter, "\nfailed to retun null FileLineIterator in test_FileLineIterator for non-existent file %s.", test_files[i]);
+            ASSERT(!file_iter, "\nfailed to retun null FileLineIterator in test_FileLineIterator for non-existent file %s.", test_line_files[i]);
         } 
-        ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in test_FileLineIterator in file %s, expected %zu, found %zu.", test_files[i], n_lines[i], line_count);
+        ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in test_FileLineIterator in file %s, expected %zu, found %zu.", test_line_files[i], n_lines[i], line_count);
     }
 
     printf("PASS\n");
@@ -138,12 +138,12 @@ int test_for_each(void) {
     for (int i = 0; i < N_TEST_FILES; i++) {
         line_count = 0;
         // this should work for all, including the files that don't exist
-        for_each(char, line, FileLine, test_files[i]) {
-            ASSERT(line, "\nLineIterator_next failed to return line in test_for_each on line %zu in test file %s.", line_count, test_files[i]);
-            ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_for_each for line %zu in test file %s, expected %zu, found %zu.", line_count, test_files[i], line_lengths[i][line_count], strlen(line));
+        for_each(char, line, FileLine, test_line_files[i]) {
+            ASSERT(line, "\nLineIterator_next failed to return line in test_for_each on line %zu in test file %s.", line_count, test_line_files[i]);
+            ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_for_each for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line));
             line_count++;
         }
-        ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in test_for_each in file %s, expected %zu, found %zu.", test_files[i], n_lines[i], line_count);
+        ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in test_for_each in file %s, expected %zu, found %zu.", test_line_files[i], n_lines[i], line_count);
     }
 
     printf("PASS\n");
@@ -157,13 +157,344 @@ int test_for_each_enumerate(void) {
     for (int i = 0; i < N_TEST_FILES; i++) {
         line_count = 0;
         // this should work for all, including the files that don't exist
-        for_each_enumerate(char, line, FileLine, test_files[i]) {
-            ASSERT(line.val, "\nFileLineIterator_next failed to return line in test_for_each_enumerate on line %zu in test file %s.", line.i, test_files[i]);
-            ASSERT(line_count == line.i, "\nfailed to enumerate the lines in test_for_each_enumerate in file %s. Lines read - 1 = %zu, enumeration = %zu.", test_files[i], line_count, line.i);
-            ASSERT(strlen(line.val) == line_lengths[i][line_count], "\nline length does not match expected output in test_for_each_enumerate for line %zu in test file %s, expected %zu, found %zu.", line_count, test_files[i], line_lengths[i][line_count], strlen(line.val));
+        for_each_enumerate(char, line, FileLine, test_line_files[i]) {
+            ASSERT(line.val, "\nFileLineIterator_next failed to return line in test_for_each_enumerate on line %zu in test file %s.", line.i, test_line_files[i]);
+            ASSERT(line_count == line.i, "\nfailed to enumerate the lines in test_for_each_enumerate in file %s. Lines read - 1 = %zu, enumeration = %zu.", test_line_files[i], line_count, line.i);
+            ASSERT(strlen(line.val) == line_lengths[i][line_count], "\nline length does not match expected output in test_for_each_enumerate for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line.val));
             line_count++;
         }
-        ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in test_for_each_enumerate in file %s, expected %zu, found %zu.", test_files[i], n_lines[i], line_count);
+        ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in test_for_each_enumerate in file %s, expected %zu, found %zu.", test_line_files[i], n_lines[i], line_count);
+    }
+
+    printf("PASS\n");
+
+    return TEST_SUCCESS;
+}
+
+int test_string_ends_with(void) {
+    printf("test_string_ends_with...");
+    // need to do this because array dims must be const, but const keyword does not suffice...
+    // must be literal. Only way to use variable name is through enum
+    enum {nstrings=4, nends=7}; 
+    char * strings[nstrings] = {
+                                "abc\r\n",
+                                "abc\n",
+                                "abc\r",
+                                "abc"
+                                };
+    char * ends[nends] = {
+                        "\r\n",
+                        "\r",
+                        "\n",
+                        "c",
+                        "ac",
+                        "abc",
+                        "abcd"
+                        };
+    bool results[nstrings][nends] = {
+                                    {true, false, true, false, false, false, false},
+                                    {false, false, true, false, false, false, false},
+                                    {false, true, false, false, false, false, false},
+                                    {false, false, false, true, false, true, false}
+                                    };
+
+    for (size_t i = 0; i < nstrings; i++) {
+        for (size_t j = 0; j < nends; j++) {
+            ASSERT(String_ends_with(strings[i], ends[j]) == results[i][j], "\nFailed to correctly identifying that %s ends with %s in test_string_ends_with, should be %s", strings[i], ends[j], (results[i][j]) ? "true" : "false");
+        }
+    }
+
+    printf("PASS\n");
+
+    return TEST_SUCCESS;
+}
+
+int test_string_rstrip(void) {
+    printf("test_string_rstrip...");
+    // need to do this because array dims must be const, but const keyword does not suffice...
+    // must be literal. Only way to use variable name is through enum
+    enum {nstrings=10, max_length=7};
+    char * strings[nstrings] = {
+                                "abc\n",
+                                "abc\r",
+                                "abc",
+                                "abc\t",
+                                "abc\f",
+                                "abc\v",
+                                "abc\r\n",
+                                " abc\r\n",
+                                "abc \r\n",
+                                "abc\nd"
+                                };
+    char * a = "abc";
+    char * sa = " abc";
+    char * results[nstrings] = {
+                                a,
+                                a,
+                                a,
+                                a,
+                                a,
+                                a,
+                                a,
+                                sa,
+                                a,
+                                "abc\nd"
+                                };
+
+    for (size_t i = 0; i < nstrings; i++) {
+        char out[max_length] = {'\0'};
+        memcpy(out, strings[i], strlen(strings[i]) + 1);
+        String_rstrip(out);
+        ASSERT(!strcmp(out, results[i]), "\nFailed to strip white space from %s in test_string_rstrip. expected %s, found %s", strings[i], results[i], out);
+    }
+
+    printf("PASS\n");
+
+    return TEST_SUCCESS;
+}
+
+int test_string_lstrip(void) {
+    printf("test_string_lstrip...");
+    // need to do this because array dims must be const, but const keyword does not suffice...
+    // must be literal. Only way to use variable name is through enum
+    enum {nstrings=9, max_length=10};
+    char * strings[nstrings] = {
+                                "\nabc\n",
+                                "\rabc\r",
+                                "abc",
+                                "\tabc\t",
+                                "\fabc\f",
+                                "\vabc\v",
+                                "\r\nabc\r\n",
+                                "\r\n abc \r\n",
+                                "d\nabc\nd"
+                                };
+    char * results[nstrings] = {
+                                "abc\n",
+                                "abc\r",
+                                "abc",
+                                "abc\t",
+                                "abc\f",
+                                "abc\v",
+                                "abc\r\n",
+                                "abc \r\n",
+                                "d\nabc\nd"
+                                };
+
+    for (size_t i = 0; i < nstrings; i++) {
+        char out[max_length] = {'\0'};
+        memcpy(out, strings[i], strlen(strings[i]) + 1);
+        String_lstrip(out);
+        ASSERT(!strcmp(out, results[i]), "\nFailed to strip white space from %s in test_string_rstrip. expected %s, found %s", strings[i], results[i], out);
+    }
+
+    printf("PASS\n");
+
+    return TEST_SUCCESS;
+}
+
+int test_string_strip(void) {
+    printf("test_string_strip...");
+    // need to do this because array dims must be const, but const keyword does not suffice...
+    // must be literal. Only way to use variable name is through enum
+    enum {nstrings=9, max_length=10};
+    char * strings[nstrings] = {
+                                "\nabc\n",
+                                "\rabc\r",
+                                "abc",
+                                "\tabc\t",
+                                "\fabc\f",
+                                "\vabc\v",
+                                "\r\nabc\r\n",
+                                "\r\n abc \r\n",
+                                "d\nabc\nd"
+                                };
+    char * a = "abc";
+    char * results[nstrings] = {
+                                a,
+                                a,
+                                a,
+                                a,
+                                a,
+                                a,
+                                a,
+                                a,
+                                "d\nabc\nd"
+                                };
+
+    for (size_t i = 0; i < nstrings; i++) {
+        char out[max_length] = {'\0'};
+        memcpy(out, strings[i], strlen(strings[i]) + 1);
+        String_strip(out);
+        ASSERT(!strcmp(out, results[i]), "\nFailed to strip white space from %s in test_string_rstrip. expected %s, found %s", strings[i], results[i], out);
+    }
+
+    printf("PASS\n");
+
+    return TEST_SUCCESS;
+}
+
+int test_TokenIterator(void) {
+    printf("test_TokenIterator...");
+    char test[256] = {'\0'};
+    char string[256] = {'\0'};
+    bool string_is_null = false;
+    char delimiters[16] = {'\0'};
+    size_t ith_token;
+
+    FileLineIterator * file_iter = FileLineIterator_iter("./data/test_tokens.txt");
+    char * line = "";
+    while (strcmp(FileLineIterator_next(file_iter), "#endheader\r\n")) {}
+
+    line = FileLineIterator_next(file_iter);
+    while (FileLineIterator_stop(file_iter) != ITERATOR_STOP) {
+        // skip empty lines
+        String_rstrip(line);
+        while (!strcmp("", line)) {
+            line = FileLineIterator_next(file_iter);
+            if (line) {
+                String_rstrip(line);
+            } else {
+                break;
+            }
+        }
+
+        if (!line) {
+            continue;
+        }
+
+        // description
+        memcpy(test, line, strlen(line)+1);
+        ith_token = 0;
+
+        //string
+        string_is_null = false;
+        line = FileLineIterator_next(file_iter);
+        String_rstrip(line);
+        if (!strcmp(line, "NULL")) {
+            string_is_null = true;
+        } else {
+            memcpy(string, line, strlen(line)+1);
+        }
+        
+        //delimiters
+        line = FileLineIterator_next(file_iter);
+        String_rstrip(line);
+
+        // create token iterator
+        TokenIterator * tokens = NULL;
+        if (strcmp("NULL", line)) {
+            memcpy(delimiters, line, strlen(line)+1);
+            tokens = TokenIterator_iter(string_is_null ? NULL : string, delimiters);
+        } else {
+            memcpy(delimiters, WHITESPACE, strlen(WHITESPACE)+1);
+            tokens = TokenIterator_iter(string_is_null ? NULL : string, NULL);
+        }
+        
+        char * token = NULL;
+        line = FileLineIterator_next(file_iter);
+        String_rstrip(line);
+        token = TokenIterator_next(tokens);
+        while (strcmp("#endtest", line)) {
+            ASSERT(!strcmp(line, token), "\nFailed to tokenize %zu-th token in %s/%s with delimiters %s in test_token_iterator. Expected %s, found %s", ith_token, test, string, delimiters, line, token);
+            ith_token++;
+            line = FileLineIterator_next(file_iter);
+            String_rstrip(line);            
+            token = TokenIterator_next(tokens);
+        }
+        
+        ASSERT(TokenIterator_stop(tokens) == ITERATOR_STOP, "\nTokenIterator failed stop in test_token_iterator. On string %s/%s with delimiters %s after %zu-th token. Last token %s", test, string, delimiters, ith_token, token);
+        tokens = NULL;
+        
+        line = FileLineIterator_next(file_iter);
+    }
+
+    printf("PASS\n");
+
+    return TEST_SUCCESS;
+}
+
+int test_array_iterators(void) {
+    printf("test_array_iterators...");
+    char test[256] = {'\0'};
+    int arr[256] = {0};
+    char type[32] = {'\0'};
+
+    FileLineIterator * file_iter = FileLineIterator_iter("./data/test_array_iterators.txt");
+    char * line = "";
+    while (strcmp(FileLineIterator_next(file_iter), "#endheader\r\n")) {}
+
+    line = FileLineIterator_next(file_iter);
+    while (FileLineIterator_stop(file_iter) != ITERATOR_STOP) {
+        String_rstrip(line);
+        while (!strcmp("", line)) {
+            line = FileLineIterator_next(file_iter);
+            if (line) {
+                String_rstrip(line);
+            } else {
+                break;
+            }
+        }
+
+        if (!line) {
+            continue;
+        }
+
+        memcpy(test, line, strlen(line)+1);
+        //printf("\ntest: %s", test);
+
+        sscanf(String_rstrip(FileLineIterator_next(file_iter)), "%s", type);
+        size_t num_arr = 0;
+        {
+        for_each_enumerate(char, elem, Token, String_rstrip(FileLineIterator_next(file_iter))) {
+            if (!strcmp(type, "int")) {
+                sscanf(elem.val, "%d", arr + elem.i);
+                num_arr++;
+            }
+        }
+        }
+
+        line = String_rstrip(FileLineIterator_next(file_iter));
+        if (!strcmp("NULL", line)) {
+            // do slicing
+
+            line = String_rstrip(FileLineIterator_next(file_iter)); // skip result line
+
+            size_t num_found = 0;
+            for_each(int, v, int, arr, num_arr) {
+                ASSERT(arr[num_found] == *v, "\nfailed to slice into array in test_array_iterators, test %s, result index %zu, expected %d, found %d", test, num_found, arr[num_found], *v);
+                num_found++;
+            }
+
+            ASSERT(num_found == num_arr, "\nfailed to find the same number of elements in slice as expected results in test_array_iterators, test %s, expected %zu, found %zu", test, num_arr, num_found);
+        } else {
+            int res[256] = {0};
+            size_t num_res = 0;
+            size_t start;
+            size_t stop;
+            long long int step;
+            sscanf(line, "%zu, %zu, %lld", &start, &stop, &step);
+            //printf("\nstart: %zu, stop: %zu, step: %lld", start, stop, step);
+            {
+            for_each_enumerate(char, elem, Token, String_rstrip(FileLineIterator_next(file_iter))) {
+                if (!strcmp(type, "int")) {
+                    sscanf(elem.val, "%d", res + elem.i);
+                    num_res++;
+                }
+            }
+            }
+
+            size_t num_found = 0;
+            for_each(int, v, intIterator, int_slice(arr, num_arr, start, stop, step)) {
+                ASSERT(res[num_found] == *v, "\nfailed to slice into array in test_array_iterators, test %s, result index %zu, expected %d, found %d", test, num_found, res[num_found], *v);
+                num_found++;
+            }
+
+            ASSERT(num_found == num_res, "\nfailed to find the same number of elements in slice as expected results in test_array_iterators, test %s, expected %zu, found %zu", test, num_res, num_found);
+        }
+
+        line = String_rstrip(FileLineIterator_next(file_iter)); // #endtest
+        line = FileLineIterator_next(file_iter); // next line
     }
 
     printf("PASS\n");
@@ -174,53 +505,14 @@ int test_for_each_enumerate(void) {
 int main() {
     test_LineIterator();
     test_FileLineIterator();
+    test_TokenIterator();
     test_for_each();
     test_for_each_enumerate();
-
+    test_string_ends_with();
+    test_string_rstrip();
+    test_string_lstrip();
+    test_string_strip();
+    test_array_iterators();
+    
     return 0;
-
-    /*
-    FileLineIterator * file = FileLineIterator_new("./data/line_enum.txt", "rb", 0);
-    
-    printf("iterating using while loop\n");
-    {
-    char * line = FileLineIterator_next(file);
-    while (!FileLineIterator_stop(file)) {
-        printf("%zu, %s", strlen(line), line);
-        line = FileLineIterator_next(file);
-    }
-    }
-
-    printf("\n\niterating using for loop\n");
-    
-    file = FileLineIterator_new("./data/line_enum.txt", "rb", 0);
-    {
-    for (char * line = FileLineIterator_next(file); !FileLineIterator_stop(file); line = FileLineIterator_next(file)) {
-        printf("%zu, %s", strlen(line), line);
-    }
-    }
-
-    printf("\n\niterating using for_each\n");
-    {
-    for_each(char, line, FileLine, "./data/line_enum.txt") {
-        printf("%zu, %s", strlen(line), line);
-    }
-    }
-
-    printf("\n\niterating using for_each with additional constructor arguments\n");
-    {
-    for_each(char, line, FileLine, "./data/line_enum.txt", "rb") {
-        printf("%zu, %s", strlen(line), line);
-    }
-    }
-
-    printf("\n\niterating using for_each_enumerate with additional constructor arguments\n");
-    {
-    for_each_enumerate(char, line, FileLine, "./data/line_enum.txt", "rb") {
-        printf("%zu: %zu, %s", line.i, strlen(line.val), line.val);
-    }
-    }
-
-    //FileLineIterator_del(file);
-    */
 }

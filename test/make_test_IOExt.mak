@@ -3,7 +3,7 @@ CC = gcc
 
 EXT = 
 LFLAGS = 
-CFLAGS = -std=c99 -O2 -Wall
+CFLAGS = -std=c99 -O2 -Wall -D__STDC_WANT_LIB_EXT2__=1 -pedantic
 
 ifeq ($(OS),Windows_NT)
 	# might have to encapsulate with a check for MINGW. Need this because Windows f-s up printf with size_t and MINGW only handles it with their own implementation of stdio
@@ -47,4 +47,4 @@ CFLAGS += -o test_IOExt$(EXT)
 all: build
 
 build:
-	$(CC) $(CFLAGS) test_IOExt.c ../src/IOExt.c $(LFLAGS)
+	$(CC) $(CFLAGS) test_IOExt.c ../src/IOExt.c ../src/iterators.c $(LFLAGS)
