@@ -135,42 +135,6 @@ declare_array_iterator(int)
 declare_array_iterator(char)
 declare_array_iterator(size_t)
 
-
-/* old type##Iterator_next
-type * type##Iterator_next(type##Iterator * iter) {                                         \
-    if (!iter) {                                                                            \
-        return NULL;                                                                        \
-    }                                                                                       \
-    if (iter->stop == ITERATOR_GO) {                                                        \
-        if (iter->_step < 0) {                                                              \
-            if (iter->_loc >= -iter->_step) {                                               \
-                iter->_loc += iter->_step;                                                  \
-            } else {                                                                        \
-                iter->stop = ITERATOR_STOP;                                                 \
-                return NULL;                                                                \
-            }                                                                               \
-        } else {                                                                            \
-            if (iter->_step > iter->num || iter->_loc >= iter->num - iter->_step) {         \
-                iter->stop = ITERATOR_STOP;                                                 \
-                return NULL;                                                                \
-            } else {                                                                        \
-                iter->_loc += iter->_step;                                                  \
-            }                                                                               \
-        }                                                                                   \
-    } else if (iter->stop == ITERATOR_PAUSE) {                                              \
-        if (!iter->num) {                                                                   \
-            iter->stop = ITERATOR_STOP;                                                     \
-            return NULL;                                                                    \
-        }                                                                                   \
-        iter->stop = ITERATOR_GO;                                                           \
-    } else {                                                                                \
-        return NULL;                                                                        \
-    }                                                                                       \
-                                                                                            \
-    return iter->array + iter->_loc;                                                        \
-}                                                                                           \
-*/
-
 /* 
 this macro generates the implementation definitions for an array of type 'type', e.g. if your 
 container is type * object, declare_array_iterator(type) will make all the appropriate 
@@ -288,7 +252,7 @@ objtype##Iterator * objtype##_##inst##_iter = objtype##Iterator_iter(__VA_ARGS__
 for (struct {size_t i; insttype * val;} inst = { 0, (insttype *) objtype##Iterator_next(objtype##_##inst##_iter)}; !objtype##Iterator_stop(objtype##_##inst##_iter); inst.i++, inst.val = (insttype *) objtype##Iterator_next(objtype##_##inst##_iter))
 
 #define RESIZE_REALLOC(result, obj, elem_type, num)                                 \
-{ \\ encapsulate to ensure temp_obj can be reused                                   \
+{ /* encapsulate to ensure temp_obj can be reused */                                \
 elem_type* temp_obj = (elem_type*) ITERATOR_REALLOC(obj, sizeof(elem_type) * num);  \
 if (temp_obj) {                                                                     \
     obj = temp_obj;                                                                 \

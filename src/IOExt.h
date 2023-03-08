@@ -6,6 +6,21 @@
 #ifndef IOEXT_H
 #define IOEXT_H
 
+// CONSIDER making a String_join, which takes an iterable object of strings and creates 1 string with delimiter
+
+// Platform depending line EOL character sequences
+#if defined(Macintosh)
+    #define LINE_ENDING "\r"
+    #define HAS_LINE_FEED 0
+#elif defined(_WIN32)
+    #define LINE_ENDING "\r\n"
+    #define HAS_LINE_FEED 1
+#else // use for basically all other cases for now
+    #define _posix_ 1
+    #define LINE_ENDING "\n"
+    #define HAS_LINE_FEED 1
+#endif // LINE_ENDING definitions
+
 #define DEFAULT_READ_MODE "rb"
 #define DEFAULT_WRITE_MODE "wb"
 
