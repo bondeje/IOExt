@@ -43,3 +43,10 @@ int
 1, 6, 1
 0 1 2 3 4
 #endtest
+
+int iterate slice start, stop, step 1, num-1, 1
+int
+-1 0 1 2 3 4 5
+1, 6, 1
+0 1 2 3 4
+#endtest

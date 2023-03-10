@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <stdarg.h>
-#include "IOExt.h"
+#include "io_ext.h"
 
 /*
 Specification following https://www.rfc-editor.org/rfc/rfc4180 with 2 exceptions:
@@ -47,26 +47,15 @@ enum csv_status {
     CSV_SUCCESS = 0,
 };
 
+typedef struct CSVRecord {
+    // replace with a stack of size_t
+    size_t * field_pos; // positions of fields. allocation size if _n_fields_alloc + 1, First value is start of record, each subsequent value is the end of a field
+    // replace with a stack of c strings
+    char ** fields; // array of c strings for fields. For writing only
+    size_t n_fields; // number of fields found
+    size_t _n_fields_alloc; // number of fields allocated. 
+} CSVRecord;
 
-// TODO: need to refactor the struct to have an array of RECORD structs, each having an array of fields_out (writeable) and fields_pos (readable)
-/*
-typedef struct CSVFile {
-    FILE * _handle;
-    FILE * _handle_file_out; // only used in "amend" mode
-    unsigned long * n_fields; // .size=N_RECORDS number of fields in each record. For a writer, this is a single value, for a reader, it is an array. For a reader used as a writer, the max value is used
-    unsigned long * records; // .size=N_RECORDS array of record start positions. For a writer, this is NULL
-    unsigned long ** field_pos; // 2-D array of field start positions. May be ragged. For a writer, this is NULL.
-    size_t n_records; // number of records
-    size_t _n_records_alloc; // N_RECORDS allocation
-    size_t _n_fields_alloc; // N_FIELDS allocation
-    size_t line_ending_size ;
-    char *** fields_out; // .size=N_RECORDS*N_FIELDS*length of each field. 2-D array of c-strings as output for a writer. NULL for a reader.
-    char * filename;
-    char * file_out;
-    char * line_ending; // normally just "\r\n"
-    char mode; // read, write, amend
-} CSVFile;
-*/
 typedef struct CSVFile {
     FILE * _handle;
     FILE * _handle_file_out; // only used in "amend" mode
@@ -80,22 +69,13 @@ typedef struct CSVFile {
     char mode; // read, write, amend
 } CSVFile;
 
-typedef struct CSVRecord {
-    // replace with a stack of size_t
-    size_t * field_pos; // positions of fields. allocation size if _n_fields_alloc + 1, First value is start of record, each subsequent value is the end of a field
-    // replace with a stack of c strings
-    char ** fields; // array of c strings for fields. For writing only
-    size_t n_fields; // number of fields found
-    size_t _n_fields_alloc; // number of fields allocated. 
-} CSVRecord;
-
 CSVFile * CSVFile_new(char * filename, char mode, char * line_ending, char * file_out);
 void CSVFile_init(CSVFile * csv, char * filename, char mode, char * line_ending, char * file_out);
 void CSVFile_del(CSVFile * csv);
 int CSVFile_append_record(CSVFile * csv, size_t pos);
 
-CSVRecord * CSVRecord_new(char mode, size_t init_field_alloc);
-void CSVRecord_init(CSVRecord * csvr, char mode, size_t init_field_alloc);
+CSVRecord * CSVRecord_new(char mode, size_t start, size_t init_field_alloc);
+void CSVRecord_init(CSVRecord * csvr, char mode, size_t start, size_t init_field_alloc);
 void CSVRecord_del(CSVRecord * csvr);
 // only use in CSV_READER mode or when adding a new record, otherwise do not use in CSV_AMENDER mode
 int CSVRecord_append_field_pos(CSVRecord * csvr, size_t pos);
@@ -104,8 +84,10 @@ int CSVFile_read(CSVFile * csv);
 int CSVFile_write(CSVFile * csv);
 
 // for builders
+/*
 int CSVFile_append_record(CSVFile * csv, char ** record, size_t n_fields);
 int CSVFile_append_field(CSVFile * csv, size_t record, char * format, ...);
+*/
 
 int CSVFile_set_cell(CSVFile * csv, size_t record, size_t field, char * format, ...);
 int CSVFile_get_cell(CSVFile * csv, size_t record, size_t field, char * format, ...);

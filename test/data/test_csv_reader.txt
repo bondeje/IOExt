@@ -1,0 +1,70 @@
+format (skipping blank lines)
+
+NULL will indicate an error return or NAN value
+
+title/description (ignored)
+csv file path
+format string
+function, function-dependent-args-comma-separated, result
+.
+.
+.
+.
+#endtest
+#endheader
+
+csv without crlf terminator
+./data/csvs/basic_2x3_notermcrlf.csv
+%d
+get_cell, 0, 0, 1
+get_cell, 0, 1, 2
+get_cell, 0, 2, 3
+get_cell, 1, 0, 4
+get_cell, 1, 1, 5
+get_cell, 1, 2, 6
+#endtest
+
+csv with crlf terminator
+./data/csvs/basic_2x3_termcrlf.csv
+%d
+get_cell, 0, 0, -1
+get_cell, 0, 1, -2
+get_cell, 0, 2, -3
+get_cell, 1, 0, -4
+get_cell, 1, 1, -5
+get_cell, 1, 2, -6
+#endtest
+
+csv with record having dangling comma
+./data/csvs/2x3_danglingcomma.csv
+%d
+get_cell, 0, 0, 1
+get_cell, 0, 1, 22
+get_cell, 0, 2, 3
+get_cell, 0, 3, NULL
+get_cell, 1, 0, 4
+get_cell, 1, 1, 5
+get_cell, 1, 2, 6
+#endtest
+
+csv missing field
+./data/csvs/2x3_missingfield.csv
+%d
+get_cell, 0, 0, 1
+get_cell, 0, 1, 2
+get_cell, 0, 2, NULL
+get_cell, 1, 0, 3
+get_cell, 1, 1, 4
+get_cell, 1, 2, 5
+#endtest
+
+csv missing data
+./data/csvs/2x3_missingdata.csv
+%d
+get_cell, 0, 0, 1
+get_cell, 0, 1, NULL
+get_cell, 0, 2, 3
+get_cell, 1, 0, 4
+get_cell, 1, 1, 5
+get_cell, 1, 2, 6
+#endtest

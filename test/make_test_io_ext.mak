@@ -42,9 +42,9 @@ else
     #endif
 endif
 
-CFLAGS += -o test_IOExt$(EXT)
+CFLAGS += -o test_io_ext$(EXT)
 
 all: build
 
 build:
-	$(CC) $(CFLAGS) test_IOExt.c ../src/IOExt.c ../src/iterators.c $(LFLAGS)
+	$(CC) $(CFLAGS) test_io_ext.c ../src/io_ext.c ../src/iterators.c ../src/csv.c $(LFLAGS)
