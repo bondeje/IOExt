@@ -2,6 +2,10 @@
 #include <string.h>
 #include "csv.h"
 
+/*
+TODO:
+*/
+
 #define RESIZE_SCALE 2
 
 /*
@@ -16,7 +20,8 @@ READER STATE MACHINE:
 
 */
 enum reader_states {
-    FAILURE = -1,
+    FAILURE = -2,
+    UNINITIALIZED,
     IN_FIELD,
     END_FIELD,
     IN_QUOTES,
@@ -158,6 +163,9 @@ CSVFile * CSVFile_new(char * filename, char mode, char * line_ending, char * fil
     if (!new_csv->records) {
         goto failed_records_alloc;
     }
+    for (size_t i = 0; i < new_csv->_n_records_alloc; i++) {
+        new_csv->records[i] = NULL;
+    }
 
     if (!line_ending) {
         line_ending = DEFAULT_LINE_ENDING;
@@ -169,7 +177,7 @@ CSVFile * CSVFile_new(char * filename, char mode, char * line_ending, char * fil
     }
 
     return new_csv;
-
+   
 failed_init:
     CSV_FREE(new_csv->records);
 
@@ -179,22 +187,25 @@ failed_records_alloc:
 failed_csvfile_alloc:
 failed_mode:
     return NULL;
+    
 }
 
 void CSVFile_init(CSVFile * csv, char * filename, char mode, char * line_ending, char * file_out) {
+    csv->_handle = NULL;
+    csv->_handle_file_out = NULL;
+    csv->filename = filename;
+    csv->file_out = file_out;
     if (mode == CSV_READER) {
         csv->_handle = fopen(filename, "rb");
         if (!csv->_handle) {
             return;
         }
         file_out = NULL;
-        csv->_handle_file_out = NULL;
     } else if (mode == CSV_WRITER) {
         csv->_handle = fopen(filename, "wb");
         if (!csv->_handle) {
             return;
         }
-        file_out = NULL;
         csv->_handle_file_out = NULL;
     } else if (mode == CSV_AMENDER) {
         if (file_out) {
@@ -214,7 +225,6 @@ void CSVFile_init(CSVFile * csv, char * filename, char mode, char * line_ending,
         }
     }
 
-    csv->filename = filename;
     csv->line_ending = line_ending;
     csv->line_ending_size = strlen(line_ending);
     csv->mode = mode;
@@ -236,7 +246,12 @@ int CSVFile_append_record(CSVFile * csv, size_t pos) {
 }
 
 CSVRecord * CSVFile_pop_record(CSVFile * csv) {
-    return csv->records[--csv->n_records];
+    if (!csv->n_records) {
+        return NULL;
+    }
+    CSVRecord * out = csv->records[csv->n_records-1];
+    csv->records[--csv->n_records] = NULL;
+    return out;
 }
 
 static int sm_get_next_state(CSVFile * csv, int state) {
@@ -259,6 +274,9 @@ static int sm_get_next_state(CSVFile * csv, int state) {
             } else if (ch == EOF) {
                 return END_CSV;
             } else if (ch == '"') { // malformed csv
+                #ifndef NDEBUG
+                printf("\nmalformed csv file, double quotes in unquoted string cell at %ld", ftell(csv->_handle));
+                #endif
                 return FAILURE;
             }
             return IN_FIELD;
@@ -292,6 +310,9 @@ static int sm_get_next_state(CSVFile * csv, int state) {
             if (ch == '"') {
                 return ESCAPING_QUOTES;
             } else if (ch == EOF) { // malformed csv EOF within field
+                #ifndef NDEBUG
+                printf("\nmalformed csv file, tried to end file within quotes at %ld", ftell(csv->_handle));
+                #endif
                 return FAILURE;
             }
             return IN_QUOTES;
@@ -307,13 +328,19 @@ static int sm_get_next_state(CSVFile * csv, int state) {
                 while (ct < csv->line_ending_size && (ch = fgetc(csv->_handle)) == csv->line_ending[ct]) {
                     ct++;
                 }
-                if (ct != csv->line_ending_size) { // failed to find line_ending, this cannot actually happend in a well-formed csv file
+                if (ct != csv->line_ending_size) { // failed to find line_ending, this cannot actually happen in a well-formed csv file
+                    #ifndef NDEBUG
+                    printf("\nmalformed csv file, invalid character outside of field (partial line-ending) at %ld", ftell(csv->_handle));
+                    #endif
                     return FAILURE;
                 }
                 return END_RECORD;
             } else if (ch == EOF) {
                 return END_CSV;
             }
+            #ifndef NDEBUG
+            printf("\nmalformed csv file, invalid character after double quotes at %ld", ftell(csv->_handle));
+            #endif
             return FAILURE; // any other condition than the 4 above is a malformed csv
         }
         case END_RECORD: {
@@ -329,6 +356,12 @@ static int sm_get_next_state(CSVFile * csv, int state) {
         case END_CSV: {
             return END_CSV;
         }
+        case UNINITIALIZED: {
+            if (ch == '"') {
+                return IN_QUOTES;
+            }
+            return IN_FIELD;
+        }
         case FAILURE: {
             // fall through
         }
@@ -341,7 +374,8 @@ static int sm_get_next_state(CSVFile * csv, int state) {
 }
 
 int CSVFile_read(CSVFile * csv) {
-    int state = IN_FIELD;
+    //printf("\nreading file %s", csv->filename);
+    int state = UNINITIALIZED;
     int res = CSVFile_append_record(csv, 0);
     if (res) {
         return res;
@@ -352,6 +386,7 @@ int CSVFile_read(CSVFile * csv) {
             case END_FIELD: {
                 // record a new field position
                 // use for CSV_READER only. TODO: make case for CSV_APPENDER
+                //printf("\ncompleted field at %zu", ftell(csv->_handle));
                 if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], ftell(csv->_handle)))) {
                     return res;
                 }
@@ -359,6 +394,7 @@ int CSVFile_read(CSVFile * csv) {
             }
             case END_RECORD: {
                 // end the last field and record a new record
+                //printf("\ncompleted record at %zu", ftell(csv->_handle));
                 size_t field_end = ftell(csv->_handle) - csv->line_ending_size + 1;
                 // use for CSV_READER only. TODO: make case for CSV_APPENDER
                 if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], field_end))) {
@@ -371,7 +407,7 @@ int CSVFile_read(CSVFile * csv) {
             }
             case END_CSV: {
                 // cleanup records
-                
+                //printf("\ncompleted file at %zu", ftell(csv->_handle));
                 if (csv->records[csv->n_records-1]->n_fields) {
                     // final record ended without a line ending. TODO: need to check that this actually includes the last character or if it cuts off the last one
                     if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], ftell(csv->_handle)+1))) {
@@ -380,21 +416,26 @@ int CSVFile_read(CSVFile * csv) {
                 } else {
                     // if last record has zero fields, pop it and destroy. This will happend if final real record ending with a line ending
                     CSVRecord_del(CSVFile_pop_record(csv));
+                    csv->records[csv->n_records] = NULL;
 
                     // if mode is reader, try to free extraneous memory
-                    if (csv->mode == CSV_READER) {
-                        RESIZE_REALLOC(res, csv->records, CSVRecord*, csv->n_records)
+                }
+                if (csv->mode == CSV_READER) {
+                    RESIZE_REALLOC(res, csv->records, CSVRecord*, csv->n_records)
+                    if (res) {
+                        csv->_n_records_alloc = csv->n_records;
+                    }
+                    
+                    for (size_t i = 0; i < csv->n_records; i++) {
+                        // probably should have a function to hide the ->field_pos member
+                        //printf("\nallocation before %zu, number of positions %zu", csv->records[i]->_n_fields_alloc+1, csv->records[i]->n_fields+1);
+                        RESIZE_REALLOC(res, csv->records[i]->field_pos, size_t, csv->records[i]->n_fields+1)
                         if (res) {
-                            csv->_n_records_alloc = csv->n_records;
-                        }
-                        for (size_t i = 0; i < csv->n_records; i++) {
-                            // probably should have a function to hide the ->field_pos member
-                            RESIZE_REALLOC(res, csv->records[i]->field_pos, size_t, csv->records[i]->n_fields+1)
-                            if (res) {
-                                csv->records[i]->_n_fields_alloc = csv->records[i]->n_fields;
-                            }
+                            csv->records[i]->_n_fields_alloc = csv->records[i]->n_fields;
+                            //printf("\nallocation after %zu, number of positions %zu", csv->records[i]->_n_fields_alloc+1, csv->records[i]->n_fields+1);
                         }
                     }
+                    
                 }
                 break;
             }
@@ -444,6 +485,40 @@ int CSVFile_set_cell(CSVFile * csv, size_t record, size_t field, char * format, 
     return CSV_SUCCESS;
 }
 
+// returns '\0' for bypass, otherwise returns cand
+// state must be initialized to a negative number
+static char strip_quotes(int * state, char cand) {
+    /*
+    state < 0 // init
+    state = 1 // encountered odd number of double quotes
+    state = 0 // encountered even number of double quotes
+
+    state transition rules:
+    if first character is not a double quote:
+        return the string
+    else:
+        subtract 1
+    when encountering all subsequent double quotes:
+        if state == 0, record the double quote
+        flip the bit on state/set to 1
+    */
+    
+    if (cand == '"') {
+        if (!*state) {
+            *state = 1;
+            return cand;
+        } else {
+            if (*state < 0) {
+                *state = 1;
+            } else {
+                *state ^= 1;
+            }
+            return '\0';
+        }
+    }
+    return cand;
+}
+
 // use sscanf after some minor pre-formatting
 int CSVFile_get_cell(CSVFile * csv, size_t record, size_t field, char * format, ...) {
     // TODO;
@@ -457,10 +532,17 @@ int CSVFile_get_cell(CSVFile * csv, size_t record, size_t field, char * format, 
     size_t size = csv->records[record]->field_pos[field+1] - start - 1;
     
     fseek(csv->_handle, start, SEEK_SET);
+    size_t j = 0;
+    char cand = '\0';
+    int quote_state = -1;
     for (size_t i = 0; i < size; i++) {
-        cell_buffer[i] = fgetc(csv->_handle);
+        cand = strip_quotes(&quote_state, fgetc(csv->_handle));
+        if (cand != '\0') {
+            cell_buffer[j++] = cand;
+        }
     }
-    cell_buffer[size] = '\0';
+    //cell_buffer[size] = '\0';
+    cell_buffer[j] = '\0';
     //printf("start: %zu, size: %zu: %s\n", start, size, cell_buffer);
     va_list arg;
     va_start(arg, format);
@@ -478,13 +560,6 @@ int CSVFile_get_column(char ** column, CSVFile * csv, size_t icolumn) {
 
 int CSVFile_get_row(char ** row, CSVFile * csv, size_t irow) {
     return CSV_SUCCESS;
-}
-
-// should be internal/static in csv.c
-// applies only to reader
-static char * CSVFile_remove_quotes(CSVFile * csv, char * cell_string) {
-    // read value in cell (record, field) and remove any outer quotes if able (cannot for escaped sequences)
-    return NULL;
 }
 
 void CSVFile_del(CSVFile * csv) {

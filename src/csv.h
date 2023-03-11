@@ -90,6 +90,7 @@ int CSVFile_append_field(CSVFile * csv, size_t record, char * format, ...);
 */
 
 int CSVFile_set_cell(CSVFile * csv, size_t record, size_t field, char * format, ...);
+// NOTE: to actually read a cell into a single string, format should be %[^\0] as just %s will stop at the first space. %[^\0] will collect all characters until string terminator
 int CSVFile_get_cell(CSVFile * csv, size_t record, size_t field, char * format, ...);
 
 #endif // CSV_H

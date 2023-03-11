@@ -4,6 +4,15 @@
 #include "../src/io_ext.h"
 #include "../src/csv.h"
 
+/*
+TODO list:
+--create malformed csv file and test that reader exits and dumps memory properly
+----unescaped quotes
+----incorrect quote escaping
+--finish writer
+--finish amender
+*/
+
 // debugging shorthands
 #ifndef NDEBUG
 	#define DEBUG_EXPR(x) x
@@ -509,8 +518,8 @@ int test_csv_reader(void) {
     char test[256] = {'\0'};
     char file_path[256] = {'\0'};
     char format[32] = {'\0'};
-    int arr[256] = {0};
-    char type[32] = {'\0'};
+
+    enum {MAX_INPUT_STRING_SIZE = 256};
 
     FileLineIterator * file_iter = FileLineIterator_iter("./data/test_csv_reader.txt");
     char * line = "";
@@ -551,96 +560,52 @@ int test_csv_reader(void) {
             tokens = TokenIterator_iter(line, ",");
             char * func = TokenIterator_next(tokens);
             if (!strcmp(func, "get_cell")) {
-                size_t irec, ifie;
+                size_t irec = 0, ifie = 0;
                 sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &irec);
                 sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &ifie);
                 if (!strcmp(format, "%d")) {
-                    int expected, found;
+                    int expected = 0, found = 0;
                     int err = CSVFile_get_cell(csv, irec, ifie, format, &found);
-                    //printf("\nHERE");
                     char * result = String_strip(TokenIterator_next(tokens));
                     if (!strcmp(result, "NULL")) {
-                        ASSERT(err, "\nfailed to find an empty field in test_csv_reader for file %s at (%zu, %zu)", file_path, irec, ifie);
+                        ASSERT(err, "\nfailed to find an empty field in test_csv_reader in test %s for file %s at (%zu, %zu)", test, file_path, irec, ifie);
                     } else {
                         sscanf(result, format, &expected);
-                        ASSERT(expected==found, "\nfailed to find populated field in test_csv_reader for file %s at (%zu, %zu), expected: %d, found %d", file_path, irec, ifie, expected, found);
+                        ASSERT(expected==found, "\nfailed to find populated field in test_csv_reader in test %s for file %s at (%zu, %zu), expected: %d, found %d", test, file_path, irec, ifie, expected, found);
                     }
                     
+                } else if (!strcmp(format, "%[^\\0]")) {
+                    char expected[MAX_INPUT_STRING_SIZE] = {'\0'};
+                    char found[MAX_INPUT_STRING_SIZE] = {'\0'};
+                    int err = CSVFile_get_cell(csv, irec, ifie, format, found);
+                    //printf("\nerr: %i, n_fields %zu in record %zu", err, csv->records[irec]->n_fields, irec);
+                    char * result = String_strip(TokenIterator_next(tokens));
+                    if (!strcmp(result, "NULL")) {
+                        ASSERT(err, "\nfailed to find an empty field in test_csv_reader in test %s for file %s at (%zu, %zu)", test, file_path, irec, ifie);
+                    } else if (!strcmp(result, "PRINT")) {
+                        #ifndef NDEBUG
+                        printf("\nfound: %s, (len: %zu)", found, strlen(found));
+                        #endif // NDEBUG
+                    } else {
+                        //printf("\nfound: %s", found);
+                        sscanf(result, format, &expected);
+                        ASSERT(!strcmp(expected, found), "\nfailed to find populated field in test_csv_reader in test %s for file %s at (%zu, %zu), expected: %s, found %s", test, file_path, irec, ifie, expected, found);
+                    }
                 } else {
-                    printf("\nformat %s for test not supported", format);
+                    printf("\nformat %s for test not supported in test %s with file %s", format, test, file_path);
                 }
             }
+            
 
             TokenIterator_del(tokens);
 
             line = String_strip(FileLineIterator_next(file_iter));
         }
 
+        CSVFile_del(csv);
+
         line = FileLineIterator_next(file_iter);
     }
-    /*
-    int val = -1;
-    csv = CSVFile_new("./data/csvs/basic_2x3_notermcrlf.csv", CSV_READER, NULL, NULL);
-    for (size_t irec = 0; irec < csv->n_records; irec++) {
-        for (size_t ifie = 0; ifie < csv->records[irec]->n_fields; ifie++) {
-            if (!CSVFile_get_cell(csv, irec, ifie, "%d", &val)) {
-                printf("%zu,%zu: %d\n", irec, ifie, val);
-            } else {
-                printf("%zu,%zu:  \n", irec, ifie);
-            }
-        }
-    }
-    CSVFile_del(csv);
-
-    csv = CSVFile_new("./data/csvs/basic_2x3_termcrlf.csv", CSV_READER, NULL, NULL);
-    for (size_t irec = 0; irec < csv->n_records; irec++) {
-        for (size_t ifie = 0; ifie < csv->records[irec]->n_fields; ifie++) {
-            if (!CSVFile_get_cell(csv, irec, ifie, "%d", &val)) {
-                printf("%zu,%zu: %d\n", irec, ifie, val);
-            } else {
-                printf("%zu,%zu:  \n", irec, ifie);
-            }
-        }
-    }
-    CSVFile_del(csv);
-
-    csv = CSVFile_new("./data/csvs/2x3_danglingcomma.csv", CSV_READER, NULL, NULL);
-    for (size_t irec = 0; irec < csv->n_records; irec++) {
-        for (size_t ifie = 0; ifie < csv->records[irec]->n_fields; ifie++) {
-            if (!CSVFile_get_cell(csv, irec, ifie, "%d", &val)) {
-                printf("%zu,%zu: %d\n", irec, ifie, val);
-            } else {
-                printf("%zu,%zu:  \n", irec, ifie);
-            }
-        }
-    }
-    CSVFile_del(csv);
-
-    csv = CSVFile_new("./data/csvs/2x3_missingdata.csv", CSV_READER, NULL, NULL);
-    for (size_t irec = 0; irec < csv->n_records; irec++) {
-        for (size_t ifie = 0; ifie < csv->records[irec]->n_fields; ifie++) {
-            if (!CSVFile_get_cell(csv, irec, ifie, "%d", &val)) {
-                printf("%zu,%zu: %d\n", irec, ifie, val);
-            } else {
-                printf("%zu,%zu:  \n", irec, ifie);
-            }
-        }
-    }
-    CSVFile_del(csv);
-
-    csv = CSVFile_new("./data/csvs/2x3_missingfield.csv", CSV_READER, NULL, NULL);
-    for (size_t irec = 0; irec < csv->n_records; irec++) {
-        for (size_t ifie = 0; ifie < csv->records[irec]->n_fields; ifie++) {
-            if (!CSVFile_get_cell(csv, irec, ifie, "%d", &val)) {
-                printf("%zu,%zu: %d\n", irec, ifie, val);
-            } else {
-                printf("%zu,%zu:  \n", irec, ifie);
-            }
-            
-        }
-    }
-    CSVFile_del(csv);
-    */
 
     printf("PASS\n");
 

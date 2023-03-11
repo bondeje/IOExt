@@ -253,7 +253,7 @@ for (struct {size_t i; insttype * val;} inst = { 0, (insttype *) objtype##Iterat
 
 #define RESIZE_REALLOC(result, obj, elem_type, num)                                 \
 { /* encapsulate to ensure temp_obj can be reused */                                \
-elem_type* temp_obj = (elem_type*) ITERATOR_REALLOC(obj, sizeof(elem_type) * num);  \
+elem_type* temp_obj = (elem_type*) ITERATOR_REALLOC(obj, sizeof(elem_type) * (num));\
 if (temp_obj) {                                                                     \
     obj = temp_obj;                                                                 \
     result = true;                                                                  \
