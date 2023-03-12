@@ -82,6 +82,8 @@ typedef struct TokenIterator {
 
 bool String_ends_with(char * string, char * ending);
 
+bool String_starts_with(const char * string, const char * prefix);
+
 // removes whitespace from the right
 char * String_rstrip(char * string);
 

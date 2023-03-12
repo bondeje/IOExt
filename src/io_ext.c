@@ -48,6 +48,10 @@ bool String_ends_with(char * string, char * ending) {
     return str_ends_with(string, strlen(string), ending, strlen(ending));
 }
 
+bool String_starts_with(const char * string, const char * prefix) {
+    return strncmp(string, prefix, strlen(prefix)) == 0;
+}
+
 // removes whitespace 
 char *  String_rstrip(char * string) {
     size_t length = strlen(string);

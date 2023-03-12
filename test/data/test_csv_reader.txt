@@ -6,6 +6,7 @@ PRINT will print out the value if in NDEBUG is not set and pass
 title/description (ignored)
 csv file path
 has header
+n_records
 format string
 function, function-dependent-args-comma-separated, result
 .
@@ -18,6 +19,7 @@ function, function-dependent-args-comma-separated, result
 csv without crlf terminator
 ./data/csvs/basic_2x3_notermcrlf.csv
 false
+2
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, 2
@@ -30,6 +32,7 @@ get_cell, 1, 2, 6
 csv with crlf terminator
 ./data/csvs/basic_2x3_termcrlf.csv
 false
+2
 %d
 get_cell, 0, 0, -1
 get_cell, 0, 1, -2
@@ -42,6 +45,7 @@ get_cell, 1, 2, -6
 csv with record having dangling comma
 ./data/csvs/2x3_danglingcomma.csv
 false
+2
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, 22
@@ -55,6 +59,7 @@ get_cell, 1, 2, 6
 csv missing field
 ./data/csvs/2x3_missingfield.csv
 false
+2
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, 2
@@ -67,6 +72,7 @@ get_cell, 1, 2, 5
 csv missing data
 ./data/csvs/2x3_missingdata.csv
 false
+2
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, NULL
@@ -79,6 +85,7 @@ get_cell, 1, 2, 6
 csv string data
 ./data/csvs/string_data.csv
 false
+2
 %[^\0]
 get_cell, 0, 0, a
 get_cell, 0, 1, b
@@ -86,4 +93,35 @@ get_cell, 0, 2, c
 get_cell, 1, 0, PRINT
 get_cell, 1, 1, PRINT
 get_cell, 1, 2, PRINT
+#endtest
+
+csv realloc records & get column
+./data/csvs/realloc_records.csv
+false
+33
+%d
+get_cell, 32, 0, 33
+get_column, 0, 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33
+get_column_slice, 0, 2, 16, 2, 3 5 7 9 11 13 15
+get_column_slice, 0, 2, 17, 2, 3 5 7 9 11 13 15 17
+#endtest
+
+csv realloc fields & get row
+./data/csvs/realloc_fields.csv
+false
+1
+%d
+get_cell, 0, 8, 9
+get_row, 0, 1 2 3 4 5 6 7 8 9
+get_row_slice, 0, 2, 8, 2, 3 5 7
+get_row_slice, 0, 2, 9, 2, 3 5 7 9
+#endtest
+
+csv realloc records & get column
+./data/csvs/header.csv
+true
+5
+%d
+get_cell, 4, 3, 16
+get_column, 2, 3 7 11 15
 #endtest

@@ -75,21 +75,21 @@ failed_csvrecord_alloc:
 
 void CSVRecord_init(CSVRecord * csvr, char mode, size_t start, size_t init_field_alloc) {
     if (!init_field_alloc) {
-        csvr->_n_fields_alloc = DEFAULT_N_FIELDS;
+        csvr->n_fields_alloc = DEFAULT_N_FIELDS;
     } else {
-        csvr->_n_fields_alloc = init_field_alloc;
+        csvr->n_fields_alloc = init_field_alloc;
     }
     if (mode == CSV_READER || mode == CSV_AMENDER) {
-        for (size_t i = 0; i <= csvr->_n_fields_alloc; i++) {
+        for (size_t i = 0; i <= csvr->n_fields_alloc; i++) {
             csvr->field_pos[i] = 0;
         }
     }
-    if (csvr->_n_fields_alloc) {
+    if (csvr->n_fields_alloc) {
         csvr->field_pos[0] = start;
     }
 
     if (mode == CSV_WRITER || mode == CSV_AMENDER) {
-        for (size_t i = 0; i < csvr->_n_fields_alloc; i++) {
+        for (size_t i = 0; i < csvr->n_fields_alloc; i++) {
             csvr->fields[i] = NULL;
         }
     }
@@ -109,34 +109,12 @@ void CSVRecord_del(CSVRecord * csvr) {
 
 // only use in CSV_READER mode or when adding a new record, otherwise do not use in CSV_AMENDER mode
 enum csv_status CSVRecord_append_field_pos(CSVRecord * csvr, size_t pos) {
-    if (csvr->n_fields == csvr->_n_fields_alloc + 1) {
+    if (csvr->n_fields == csvr->n_fields_alloc) {
         bool result;
-        RESIZE_REALLOC(result, csvr->field_pos, size_t, csvr->_n_fields_alloc*RESIZE_SCALE + 1)
+        RESIZE_REALLOC(result, csvr->field_pos, size_t, csvr->n_fields_alloc*RESIZE_SCALE + 1)
         if (result) {
-            /*
-            if (csvr->fields) {
-                RESIZE_REALLOC(result, csvr->fields, char *, csvr->_n_fields_alloc*RESIZE_SCALE)
-                if (result) {
-                    csvr->_n_fields_alloc = csvr->_n_fields_alloc*RESIZE_SCALE;
-                    csvr->field_pos[csvr->n_fields] = pos;
-                    for (size_t i = csvr->n_fields; i < csvr->_n_fields_alloc; i++) {
-                        csvr->fields[i] = NULL;
-                        csvr->field_pos[i+1] = 0;
-                    }
-                } else {
-                    RESIZE_REALLOC(result, csvr->field_pos, size_t, csvr->_n_fields_alloc + 1)
-                    return CSV_FAILURE;
-                }
-            } else {
-                csvr->_n_fields_alloc = csvr->_n_fields_alloc*RESIZE_SCALE;
-                csvr->field_pos[csvr->n_fields] = pos;
-                for (size_t i = csvr->n_fields; i < csvr->_n_fields_alloc; i++) {
-                    csvr->field_pos[i+1] = 0;
-                }
-            }
-            */
-            csvr->_n_fields_alloc = csvr->_n_fields_alloc*RESIZE_SCALE;
-            for (size_t i = csvr->n_fields; i < csvr->_n_fields_alloc; i++) {
+            csvr->n_fields_alloc *= RESIZE_SCALE;
+            for (size_t i = csvr->n_fields; i < csvr->n_fields_alloc; i++) {
                 csvr->field_pos[i+1] = 0;
             }
         } else {
@@ -156,14 +134,14 @@ CSVFile * CSVFile_new(char * filename, char mode, bool has_header, char * line_e
         goto failed_csvfile_alloc;
     }
 
-    new_csv->_n_records_alloc = DEFAULT_N_RECORDS;
+    new_csv->n_records_alloc = DEFAULT_N_RECORDS;
 
     // available for READER/WRITER/AMENDER
-    new_csv->records = (CSVRecord **) CSV_MALLOC(sizeof(CSVRecord *) * new_csv->_n_records_alloc);
+    new_csv->records = (CSVRecord **) CSV_MALLOC(sizeof(CSVRecord *) * new_csv->n_records_alloc);
     if (!new_csv->records) {
         goto failed_records_alloc;
     }
-    for (size_t i = 0; i < new_csv->_n_records_alloc; i++) {
+    for (size_t i = 0; i < new_csv->n_records_alloc; i++) {
         new_csv->records[i] = NULL;
     }
 
@@ -172,7 +150,7 @@ CSVFile * CSVFile_new(char * filename, char mode, bool has_header, char * line_e
     }
 
     CSVFile_init(new_csv, filename, mode, has_header, line_ending, file_out);
-    if (!new_csv->_handle) {
+    if (!new_csv->handle) {
         goto failed_init;
     }
 
@@ -191,37 +169,37 @@ failed_mode:
 }
 
 void CSVFile_init(CSVFile * csv, char * filename, char mode, bool has_header, char * line_ending, char * file_out) {
-    csv->_handle = NULL;
-    csv->_handle_file_out = NULL;
+    csv->handle = NULL;
+    csv->handle_file_out = NULL;
     csv->filename = filename;
     csv->file_out = file_out;
     if (mode == CSV_READER) {
-        csv->_handle = fopen(filename, "rb");
-        if (!csv->_handle) {
+        csv->handle = fopen(filename, "rb");
+        if (!csv->handle) {
             return;
         }
         file_out = NULL;
     } else if (mode == CSV_WRITER) {
-        csv->_handle = fopen(filename, "wb");
-        if (!csv->_handle) {
+        csv->handle = fopen(filename, "wb");
+        if (!csv->handle) {
             return;
         }
-        csv->_handle_file_out = NULL;
+        csv->handle_file_out = NULL;
     } else if (mode == CSV_AMENDER) {
         if (file_out) {
-            csv->_handle = fopen(filename, "rb");
-            if (!csv->_handle) {
+            csv->handle = fopen(filename, "rb");
+            if (!csv->handle) {
                 return;
             }
-            csv->_handle_file_out = fopen(file_out, "wb");
-            if (!csv->_handle_file_out) {
-                fclose(csv->_handle);
-                csv->_handle = NULL;
+            csv->handle_file_out = fopen(file_out, "wb");
+            if (!csv->handle_file_out) {
+                fclose(csv->handle);
+                csv->handle = NULL;
                 return;
             }
         } else {
-            csv->_handle = fopen(filename, "rb+");
-            csv->_handle_file_out = NULL;
+            csv->handle = fopen(filename, "rb+");
+            csv->handle_file_out = NULL;
         }
     }
 
@@ -237,6 +215,14 @@ void CSVFile_init(CSVFile * csv, char * filename, char mode, bool has_header, ch
 }
 
 enum csv_status CSVFile_append_record(CSVFile * csv, size_t pos) {
+    if (csv->n_records == csv->n_records_alloc) {
+        int res = true;
+        RESIZE_REALLOC(res, csv->records, CSVRecord *, csv->n_records_alloc * RESIZE_SCALE)
+        if (!res) {
+            return CSV_MEMORY_ERROR;
+        }
+        csv->n_records_alloc *= RESIZE_SCALE;
+    }
     csv->records[csv->n_records] = CSVRecord_new(csv->mode, pos, 0);
     if (!csv->records[csv->n_records]) {
         return CSV_MEMORY_ERROR;
@@ -256,7 +242,7 @@ CSVRecord * CSVFile_pop_record(CSVFile * csv) {
 }
 
 static enum reader_states sm_get_next_state(CSVFile * csv, int state) {
-    int ch = fgetc(csv->_handle);
+    int ch = fgetc(csv->handle);
     switch (state) {
         case IN_FIELD: {
             if (ch == ',') {
@@ -264,11 +250,11 @@ static enum reader_states sm_get_next_state(CSVFile * csv, int state) {
             } else if (ch == csv->line_ending[0]) {
                 size_t ct = 1;
                 // need to test that the fgetc is not executed when ct == csv->line_ending_size
-                while (ct < csv->line_ending_size && (ch = fgetc(csv->_handle)) == csv->line_ending[ct]) {
+                while (ct < csv->line_ending_size && (ch = fgetc(csv->handle)) == csv->line_ending[ct]) {
                     ct++;
                 }
                 if (ct != csv->line_ending_size) { // failed to find line_ending
-                    fseek(csv->_handle, -1, SEEK_CUR); // move back one since we fgetc'd a character that was not a line_ending
+                    fseek(csv->handle, -1, SEEK_CUR); // move back one since we fgetc'd a character that was not a line_ending
                     return IN_FIELD;
                 }
                 return END_RECORD;
@@ -276,7 +262,7 @@ static enum reader_states sm_get_next_state(CSVFile * csv, int state) {
                 return END_CSV;
             } else if (ch == '"') { // malformed csv
                 #ifndef NDEBUG
-                printf("\nmalformed csv file, double quotes in unquoted string cell at %ld", ftell(csv->_handle));
+                printf("\nmalformed csv file, double quotes in unquoted string cell at %ld", ftell(csv->handle));
                 #endif
                 return FAILURE;
             }
@@ -290,7 +276,7 @@ static enum reader_states sm_get_next_state(CSVFile * csv, int state) {
             } else if (ch == csv->line_ending[0]) {
                 size_t ct = 1;
                 // need to test that the fgetc is not executed when ct == csv->line_ending_size
-                while (ct < csv->line_ending_size && (ch = fgetc(csv->_handle)) == csv->line_ending[ct]) {
+                while (ct < csv->line_ending_size && (ch = fgetc(csv->handle)) == csv->line_ending[ct]) {
                     ct++;
                 }
                 if (ct != csv->line_ending_size) { // failed to find line_ending
@@ -312,7 +298,7 @@ static enum reader_states sm_get_next_state(CSVFile * csv, int state) {
                 return ESCAPING_QUOTES;
             } else if (ch == EOF) { // malformed csv EOF within field
                 #ifndef NDEBUG
-                printf("\nmalformed csv file, tried to end file within quotes at %ld", ftell(csv->_handle));
+                printf("\nmalformed csv file, tried to end file within quotes at %ld", ftell(csv->handle));
                 #endif
                 return FAILURE;
             }
@@ -326,12 +312,12 @@ static enum reader_states sm_get_next_state(CSVFile * csv, int state) {
             } else if (ch == csv->line_ending[0]) {
                 size_t ct = 1;
                 // need to test that the fgetc is not executed when ct == csv->line_ending_size
-                while (ct < csv->line_ending_size && (ch = fgetc(csv->_handle)) == csv->line_ending[ct]) {
+                while (ct < csv->line_ending_size && (ch = fgetc(csv->handle)) == csv->line_ending[ct]) {
                     ct++;
                 }
                 if (ct != csv->line_ending_size) { // failed to find line_ending, this cannot actually happen in a well-formed csv file
                     #ifndef NDEBUG
-                    printf("\nmalformed csv file, invalid character outside of field (partial line-ending) at %ld", ftell(csv->_handle));
+                    printf("\nmalformed csv file, invalid character outside of field (partial line-ending) at %ld", ftell(csv->handle));
                     #endif
                     return FAILURE;
                 }
@@ -340,7 +326,7 @@ static enum reader_states sm_get_next_state(CSVFile * csv, int state) {
                 return END_CSV;
             }
             #ifndef NDEBUG
-            printf("\nmalformed csv file, invalid character after double quotes at %ld", ftell(csv->_handle));
+            printf("\nmalformed csv file, invalid character after double quotes at %ld", ftell(csv->handle));
             #endif
             return FAILURE; // any other condition than the 4 above is a malformed csv
         }
@@ -387,16 +373,16 @@ enum csv_status CSVFile_read(CSVFile * csv) {
             case END_FIELD: {
                 // record a new field position
                 // use for CSV_READER only. TODO: make case for CSV_APPENDER
-                //printf("\ncompleted field at %zu", ftell(csv->_handle));
-                if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], ftell(csv->_handle)))) {
+                //printf("\ncompleted field at %zu", ftell(csv->handle));
+                if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], ftell(csv->handle)))) {
                     return res;
                 }
                 break;
             }
             case END_RECORD: {
                 // end the last field and record a new record
-                //printf("\ncompleted record at %zu", ftell(csv->_handle));
-                size_t field_end = ftell(csv->_handle) - csv->line_ending_size + 1;
+                //printf("\ncompleted record at %zu", ftell(csv->handle));
+                size_t field_end = ftell(csv->handle) - csv->line_ending_size + 1;
                 // use for CSV_READER only. TODO: make case for CSV_APPENDER
                 if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], field_end))) {
                     return res;
@@ -408,10 +394,12 @@ enum csv_status CSVFile_read(CSVFile * csv) {
             }
             case END_CSV: {
                 // cleanup records
-                //printf("\ncompleted file at %zu", ftell(csv->_handle));
-                if (csv->records[csv->n_records-1]->n_fields) {
+                //printf("\ncompleted file at %zu", ftell(csv->handle));
+                size_t loc = ftell(csv->handle);
+                //if (csv->records[csv->n_records-1]->n_fields) { // if csv has single column/field count, this misses last entry if no line-ending
+                if (loc > csv->records[csv->n_records-1]->field_pos[0]) { // add a field if the current cursor is not at the beginning of a record
                     // final record ended without a line ending. TODO: need to check that this actually includes the last character or if it cuts off the last one
-                    if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], ftell(csv->_handle)+1))) {
+                    if ((res = CSVRecord_append_field_pos(csv->records[csv->n_records-1], loc + 1))) {
                         return res;
                     }
                 } else {
@@ -424,16 +412,16 @@ enum csv_status CSVFile_read(CSVFile * csv) {
                 if (csv->mode == CSV_READER) {
                     RESIZE_REALLOC(res, csv->records, CSVRecord*, csv->n_records)
                     if (res) {
-                        csv->_n_records_alloc = csv->n_records;
+                        csv->n_records_alloc = csv->n_records;
                     }
                     
                     for (size_t i = 0; i < csv->n_records; i++) {
                         // probably should have a function to hide the ->field_pos member
-                        //printf("\nallocation before %zu, number of positions %zu", csv->records[i]->_n_fields_alloc+1, csv->records[i]->n_fields+1);
+                        //printf("\nallocation before %zu, number of positions %zu", csv->records[i]->n_fields_alloc+1, csv->records[i]->n_fields+1);
                         RESIZE_REALLOC(res, csv->records[i]->field_pos, size_t, csv->records[i]->n_fields+1)
                         if (res) {
-                            csv->records[i]->_n_fields_alloc = csv->records[i]->n_fields;
-                            //printf("\nallocation after %zu, number of positions %zu", csv->records[i]->_n_fields_alloc+1, csv->records[i]->n_fields+1);
+                            csv->records[i]->n_fields_alloc = csv->records[i]->n_fields;
+                            //printf("\nallocation after %zu, number of positions %zu", csv->records[i]->n_fields_alloc+1, csv->records[i]->n_fields+1);
                         }
                     }
                     
@@ -532,12 +520,12 @@ enum csv_status CSVFile_get_cell(CSVFile * csv, size_t record, size_t field, cha
     size_t start = csv->records[record]->field_pos[field];// + ((field) ? 1 : 0);
     size_t size = csv->records[record]->field_pos[field+1] - start - 1;
     
-    fseek(csv->_handle, start, SEEK_SET);
+    fseek(csv->handle, start, SEEK_SET);
     size_t j = 0;
     char cand = '\0';
     int quote_state = -1;
     for (size_t i = 0; i < size; i++) {
-        cand = strip_quotes(&quote_state, fgetc(csv->_handle));
+        cand = strip_quotes(&quote_state, fgetc(csv->handle));
         if (cand != '\0') {
             cell_buffer[j++] = cand;
         }
@@ -601,6 +589,7 @@ void CSVFileIterator_init(CSVFileIterator * csv_iter, CSVFile * csv, size_t inde
     csv_iter->index = index;
     csv_iter->axis = axis;
     csv_iter->stop = ITERATOR_GO;
+    csv_iter->next_size = next_buffer_size;
     for (size_t i = 0; i < csv_iter->next_size; i++) {
         csv_iter->next[i] = '\0';
     }
@@ -708,10 +697,20 @@ CSVFileIterator * CSVFile_get_row_slice(CSVFile * csv, size_t irow, size_t start
     return out;
 }
 
+CSVFileIterator * CSVFileIteratorIterator_iter(CSVFileIterator * csv_iter) {
+    return csv_iter;
+}
+char * CSVFileIteratorIterator_next(CSVFileIteratorIterator * csv_iter) {
+    return CSVFileIterator_next(csv_iter);
+}
+enum iterator_status CSVFileIteratorIterator_stop(CSVFileIteratorIterator * csv_iter) {
+    return CSVFileIterator_stop(csv_iter);
+}
+
 void CSVFile_del(CSVFile * csv) {
-    fclose(csv->_handle);
+    fclose(csv->handle);
     if (csv->file_out) {
-        fclose(csv->_handle_file_out);
+        fclose(csv->handle_file_out);
     }
     for (size_t i = 0; i < csv->n_records; i++) {
         CSVRecord_del(csv->records[i]);

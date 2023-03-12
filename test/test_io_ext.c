@@ -518,6 +518,7 @@ int test_csv_reader(void) {
     char test[256] = {'\0'};
     char file_path[256] = {'\0'};
     char format[32] = {'\0'};
+    size_t n_records = 0;
 
     enum {MAX_INPUT_STRING_SIZE = 256};
 
@@ -530,6 +531,7 @@ int test_csv_reader(void) {
         String_rstrip(line);
         while (!strcmp("", line)) {
             line = FileLineIterator_next(file_iter);
+            
             if (line) {
                 String_rstrip(line);
             } else {
@@ -552,6 +554,10 @@ int test_csv_reader(void) {
 
         csv = CSVFile_new(file_path, CSV_READER, !strcmp(line, "true"), NULL, NULL);
 
+        sscanf(String_strip(FileLineIterator_next(file_iter)), "%zu", &n_records);
+
+        ASSERT(n_records==csv->n_records, "\nfailed to parse the correct amount of records in test %s for file %s, expected: %zu, found: %zu", test, file_path, n_records, csv->n_records);
+
         line = String_strip(FileLineIterator_next(file_iter));
         memcpy(format, line, strlen(line)+1);
         //printf("\nformat: %s", format);
@@ -561,6 +567,7 @@ int test_csv_reader(void) {
         while (strcmp("#endtest", line)) {
             tokens = TokenIterator_iter(line, ",");
             char * func = TokenIterator_next(tokens);
+            //printf("\nfunction: %s", func);
             if (!strcmp(func, "get_cell")) {
                 size_t irec = 0, ifie = 0;
                 sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &irec);
@@ -596,17 +603,68 @@ int test_csv_reader(void) {
                 } else {
                     printf("\nformat %s for test not supported in test %s with file %s", format, test, file_path);
                 }
+            } else if (String_starts_with(func, "get_column")) {
+                size_t ifie = 0;
+                CSVFileIterator * founds = NULL;
+                if (!strcmp(func, "get_column")) {
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &ifie);
+                    founds = CSVFile_get_column(csv, ifie);
+                } else if (!strcmp(func, "get_column_slice")) {
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &ifie);
+                    size_t start, stop, step;
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &start);
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &stop);
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &step);
+                    founds = CSVFile_get_column_slice(csv, ifie, start, stop, step);
+                }
+                TokenIterator * expecteds = TokenIterator_iter(String_strip(TokenIterator_next(tokens)), " ");
+                char * expected = TokenIterator_next(expecteds);
+                char * found = CSVFileIterator_next(founds);
+                while (TokenIterator_stop(expecteds) != ITERATOR_STOP) {
+                    ASSERT(!strcmp(expected, found), "\nfailed to find the correct value in %s for test %s in file %s for column %zu, expected: %s, found %s", func, test, file_path, ifie, expected, found);
+                    ASSERT(CSVFileIterator_stop(founds) != ITERATOR_STOP, "\nfailed to find the correct number of elements in %s for test %s in file %s for column %zu", func, test, file_path, ifie);
+                    expected = TokenIterator_next(expecteds);
+                    found = CSVFileIterator_next(founds);
+                }
+                ASSERT(CSVFileIterator_stop(founds) == ITERATOR_STOP, "\nfailed to find the correct number of elements in %s for test %s in file %s for column %zu", func, test, file_path, ifie);
+            } else if (String_starts_with(func, "get_row")) {
+                size_t irec = 0;
+                CSVFileIterator * founds = NULL;
+                if (!strcmp(func, "get_row")) {
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &irec);
+                    founds = CSVFile_get_row(csv, irec);
+                } else if (!strcmp(func, "get_row_slice")) {
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &irec);
+                    size_t start, stop, step;
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &start);
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &stop);
+                    sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &step);
+                    founds = CSVFile_get_row_slice(csv, irec, start, stop, step);
+                }
+                TokenIterator * expecteds = TokenIterator_iter(String_strip(TokenIterator_next(tokens)), " ");
+                char * expected = TokenIterator_next(expecteds);
+                char * found = CSVFileIterator_next(founds);
+                while (TokenIterator_stop(expecteds) != ITERATOR_STOP) {
+                    ASSERT(!strcmp(expected, found), "\nfailed to find the correct value in %s for test %s in file %s for column %zu, expected: %s, found %s", func, test, file_path, irec, expected, found);
+                    ASSERT(CSVFileIterator_stop(founds) != ITERATOR_STOP, "\nreturned too few elements in %s for test %s in file %s for column %zu", func, test, file_path, irec);
+                    expected = TokenIterator_next(expecteds);
+                    found = CSVFileIterator_next(founds);
+                }
+                ASSERT(CSVFileIterator_stop(founds) == ITERATOR_STOP, "\nreturned too many elementsrrect number of elements in %s for test %s in file %s for column %zu", func, test, file_path, irec);
+            } else {
+                printf("\ntest function %s for test not supported in test %s with file %s", func, test, file_path);
             }
-            
-
+            //printf("\ncleaning up tokens");
             TokenIterator_del(tokens);
-
+    
             line = String_strip(FileLineIterator_next(file_iter));
+            //printf("\nnext_line: %s", line);
         }
-
+        //printf("\ncleaning up csv file");
         CSVFile_del(csv);
 
         line = FileLineIterator_next(file_iter);
+        //printf("\nnext_line: %s", line);
     }
 
     printf("PASS\n");

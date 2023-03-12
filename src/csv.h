@@ -32,8 +32,9 @@ TODO: need to be able to track the max field count in the CSVFile struct so that
 #endif // CSV_FREE
 
 // defaults
-#define DEFAULT_N_RECORDS 128
+#define DEFAULT_N_RECORDS 32
 #define DEFAULT_N_FIELDS 8
+#define DEFAULT_MEM_SCALE 2
 #define DEFAULT_LINE_ENDING "\r\n"
 
 // modes
@@ -63,19 +64,19 @@ enum csv_axis {
 
 typedef struct CSVRecord {
     // replace with a stack of size_t
-    size_t * field_pos; // positions of fields. allocation size if _n_fields_alloc + 1, First value is start of record, each subsequent value is the end of a field
+    size_t * field_pos; // positions of fields. allocation size if n_fields_alloc + 1, First value is start of record, each subsequent value is the end of a field
     // replace with a stack of c strings
     char ** fields; // array of c strings for fields. For writing only
     size_t n_fields; // number of fields found
-    size_t _n_fields_alloc; // number of fields allocated. 
+    size_t n_fields_alloc; // number of fields allocated. 
 } CSVRecord;
 
 typedef struct CSVFile {
-    FILE * _handle;
-    FILE * _handle_file_out; // only used in "amend" mode
+    FILE * handle;
+    FILE * handle_file_out; // only used in "amend" mode
     CSVRecord ** records; // array of records
     size_t n_records; // number of records
-    size_t _n_records_alloc; // N_RECORDS allocation
+    size_t n_records_alloc; // N_RECORDS allocation
     size_t line_ending_size ;
     char * filename;
     char * file_out;
@@ -95,7 +96,7 @@ typedef struct CSVFileIterator {
     size_t step_;
     enum csv_axis axis;
     enum iterator_status stop;
-} CSVFileIterator;
+} CSVFileIterator, CSVFileIteratorIterator;
 
 CSVFile * CSVFile_new(char * filename, char mode, bool has_header, char * line_ending, char * file_out);
 void CSVFile_init(CSVFile * csv, char * filename, char mode, bool has_header, char * line_ending, char * file_out);
@@ -109,6 +110,9 @@ void CSVFileIterator_del(CSVFileIterator * csv_iter);
 // NULL means failure or stop condition and NOT an empty field
 char * CSVFileIterator_next(CSVFileIterator * csv_iter);
 enum iterator_status CSVFileIterator_stop(CSVFileIterator * csv_iter);
+CSVFileIterator * CSVFileIteratorIterator_iter(CSVFileIterator * csv_iter);
+char * CSVFileIteratorIterator_next(CSVFileIteratorIterator * csv_iter);
+enum iterator_status CSVFileIteratorIterator_stop(CSVFileIteratorIterator * csv_iter);
 
 CSVRecord * CSVRecord_new(char mode, size_t start, size_t init_field_alloc);
 void CSVRecord_init(CSVRecord * csvr, char mode, size_t start, size_t init_field_alloc);
