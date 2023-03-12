@@ -198,6 +198,9 @@ void LineIterator_del(LineIterator * lines) {
 
 // return pointer to the next line of characters, nul terminated
 char * LineIterator_next(LineIterator * lines) {
+    if (!lines) {
+        return NULL;
+    }
 
 #if defined(_posix_) || defined(__STDC_ALLOC_LIB__)
     if (getline(&lines->next, &lines->next_buf_size, lines->_h) <= 0) {
@@ -208,9 +211,6 @@ char * LineIterator_next(LineIterator * lines) {
     }
 #else // basically for Windows
 
-    if (!lines) {
-        return NULL;
-    }
     // this is the non-posix version. For posix, use getline() in stdio.h to update LineIterator
     char * test = fgets(lines->next, lines->next_buf_size, lines->_h);
     if (!test) { // fgets failed or EOF is encountered immediately
@@ -405,8 +405,7 @@ char * TokenIterator_next(TokenIterator * tokens) {
             }
             //j++;
         }
-        //tokens->stop = ITERATOR_STOP;
-        //return NULL;
+        
         // left now either points to the end of the string or the last delimiter in delimiters (where location needs to be)
 
         // if left is at the end fo the string, simply use everythign from start to left, otherwise start to left - the number of delimiters
@@ -438,18 +437,6 @@ char * TokenIterator_next(TokenIterator * tokens) {
 
     strncpy(tokens->next, start, next_size);
     tokens->next[next_size] = '\0';
-
-    //maybe do not need this
-    /*
-    if (tokens->string[tokens->loc] != '\0' && tokens->_group) {
-        while (is_in_delimiter_set(tokens->string[tokens->loc+1], tokens->delimiters)) {
-            tokens->loc++;
-        }
-        if (tokens->string[tokens->loc+1] == '\0') {
-            tokens->loc++;
-        }
-    } 
-    */
 
     return tokens->next;
 }

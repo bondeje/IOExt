@@ -5,6 +5,7 @@ PRINT will print out the value if in NDEBUG is not set and pass
 
 title/description (ignored)
 csv file path
+has header
 format string
 function, function-dependent-args-comma-separated, result
 .
@@ -16,6 +17,7 @@ function, function-dependent-args-comma-separated, result
 
 csv without crlf terminator
 ./data/csvs/basic_2x3_notermcrlf.csv
+false
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, 2
@@ -27,6 +29,7 @@ get_cell, 1, 2, 6
 
 csv with crlf terminator
 ./data/csvs/basic_2x3_termcrlf.csv
+false
 %d
 get_cell, 0, 0, -1
 get_cell, 0, 1, -2
@@ -38,6 +41,7 @@ get_cell, 1, 2, -6
 
 csv with record having dangling comma
 ./data/csvs/2x3_danglingcomma.csv
+false
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, 22
@@ -50,6 +54,7 @@ get_cell, 1, 2, 6
 
 csv missing field
 ./data/csvs/2x3_missingfield.csv
+false
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, 2
@@ -61,6 +66,7 @@ get_cell, 1, 2, 5
 
 csv missing data
 ./data/csvs/2x3_missingdata.csv
+false
 %d
 get_cell, 0, 0, 1
 get_cell, 0, 1, NULL
@@ -72,6 +78,7 @@ get_cell, 1, 2, 6
 
 csv string data
 ./data/csvs/string_data.csv
+false
 %[^\0]
 get_cell, 0, 0, a
 get_cell, 0, 1, b

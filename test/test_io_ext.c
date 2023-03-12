@@ -548,7 +548,9 @@ int test_csv_reader(void) {
         memcpy(file_path, line, strlen(line)+1);
         //printf("\nfile_path: %s", file_path);
 
-        csv = CSVFile_new(file_path, CSV_READER, NULL, NULL);
+        line = String_strip(FileLineIterator_next(file_iter));
+
+        csv = CSVFile_new(file_path, CSV_READER, !strcmp(line, "true"), NULL, NULL);
 
         line = String_strip(FileLineIterator_next(file_iter));
         memcpy(format, line, strlen(line)+1);
