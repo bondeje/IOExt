@@ -19,18 +19,6 @@ Specification following https://www.rfc-editor.org/rfc/rfc4180 with 2 exceptions
 TODO: need to be able to track the max field count in the CSVFile struct so that I can validate enough fields exist SOMEWHERE
 */
 
-#ifndef CSV_MALLOC
-#define CSV_MALLOC malloc
-#endif // CSV_MALLOC
-
-#ifndef CSV_REALLOC
-#define CSV_REALLOC realloc
-#endif // CSV_REALLOC
-
-#ifndef CSV_FREE
-#define CSV_FREE free
-#endif // CSV_FREE
-
 // defaults
 #define DEFAULT_N_RECORDS 32
 #define DEFAULT_N_FIELDS 8
@@ -88,14 +76,15 @@ typedef struct CSVFile {
 typedef struct CSVFileIterator {
     CSVFile * csv;
     char * next;
-    size_t next_size;
+    size_t buffer_size;
     size_t index;
     size_t axis_index;
-    size_t start_;
-    size_t stop_;
-    size_t step_;
+    size_t start;
+    size_t end;
+    size_t step;
     enum csv_axis axis;
     enum iterator_status stop;
+    bool buffer_reclaim;
 } CSVFileIterator, CSVFileIteratorIterator;
 
 CSVFile * CSVFile_new(char * filename, char mode, bool has_header, char * line_ending, char * file_out);
@@ -103,14 +92,15 @@ void CSVFile_init(CSVFile * csv, char * filename, char mode, bool has_header, ch
 void CSVFile_del(CSVFile * csv);
 enum csv_status CSVFile_append_record(CSVFile * csv, size_t pos);
 
-CSVFileIterator * CSVFileIterator_new(CSVFile * csv, size_t index, enum csv_axis axis, size_t next_buffer_size);
-CSVFileIterator * CSVFileIterator_iter3(CSVFile * csv, size_t index, enum csv_axis axis);
-void CSVFileIterator_init(CSVFileIterator * csv_iter, CSVFile * csv, size_t index, enum csv_axis axis, size_t next_buffer_size);
+CSVFileIterator * CSVFileIterator_new(CSVFile * csv, size_t index, enum csv_axis axis, size_t buffer_size);
+//CSVFileIterator * CSVFileIterator_iter3(CSVFile * csv, size_t index, enum csv_axis axis);
+void CSVFileIterator_init(CSVFileIterator * csv_iter, CSVFile * csv, size_t index, enum csv_axis axis, char * buffer, size_t buffer_size);
 void CSVFileIterator_del(CSVFileIterator * csv_iter);
 // NULL means failure or stop condition and NOT an empty field
 char * CSVFileIterator_next(CSVFileIterator * csv_iter);
 enum iterator_status CSVFileIterator_stop(CSVFileIterator * csv_iter);
-CSVFileIterator * CSVFileIteratorIterator_iter(CSVFileIterator * csv_iter);
+//CSVFileIterator * CSVFileIteratorIterator_iter(CSVFileIterator * csv_iter);
+void CSVFileIteratorIterator_init(CSVFileIteratorIterator * csv_iter_iter, CSVFileIterator * csv_iter);
 char * CSVFileIteratorIterator_next(CSVFileIteratorIterator * csv_iter);
 enum iterator_status CSVFileIteratorIterator_stop(CSVFileIteratorIterator * csv_iter);
 

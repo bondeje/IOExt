@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include "../src/io_ext.h"
-#include "../src/csv.h"
+#include "io_ext.h"
+#include "csv.h"
 
 /*
 TODO list:
@@ -71,7 +71,7 @@ int test_LineIterator(void) {
         }
         if (file_exists[i]) {
             ASSERT(lines, "\nfailed to dynamically allocate LineIterator in test_LineIterator.");
-            ASSERT(lines->next_buf_size == buf_sizes[i], "\nfailed to allocate default buffer size %zu in test_LineIterator, found %zu", buf_sizes[i], lines->next_buf_size);
+            ASSERT(lines->buffer_size == buf_sizes[i], "\nfailed to allocate default buffer size %zu in test_LineIterator, found %zu", buf_sizes[i], lines->buffer_size);
             ASSERT(strlen(lines->next) == 0, "\nfailed to initialize next line to 0-length string, found %zu", strlen(lines->next));
             ASSERT(lines->stop == ITERATOR_GO, "\nfailed to initialize LineIterator to be able to start in test_LineIterator.");
             
@@ -79,7 +79,7 @@ int test_LineIterator(void) {
             line = LineIterator_next(lines);
             while (lines->stop != ITERATOR_STOP) {
                 ASSERT(line, "\nLineIterator_next failed to return line in test_LineIterator on line %zu in test file %s.", line_count, test_line_files[i]);
-                ASSERT(lines->next_buf_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_LineIterator for line %zu in test_line_files %s, expected > %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], lines->next_buf_size);
+                ASSERT(lines->buffer_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_LineIterator for line %zu in test_line_files %s, expected > %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], lines->buffer_size);
                 ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_LineIterator for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line));
                 line = NULL;
                 line = LineIterator_next(lines);
@@ -115,16 +115,15 @@ int test_FileLineIterator(void) {
         }
         if (file_exists[i]) {
             ASSERT(file_iter, "\nfailed to open file %s in test_FileLineIterator.", test_line_files[i]);
-            ASSERT(file_iter->lines, "\nfailed to dynamically allocate LineIterator in test_FileLineIterator.");
-            ASSERT(file_iter->lines->next_buf_size == buf_sizes[i], "\nfailed to allocate default buffer size %zu in test_FileLineIterator, found %zu", buf_sizes[i], file_iter->lines->next_buf_size);
-            ASSERT(strlen(file_iter->lines->next) == 0, "\nfailed to initialize next line to 0-length string, found %zu", strlen(file_iter->lines->next));
-            ASSERT(file_iter->lines->stop == ITERATOR_GO, "\nfailed to initialize LineIterator to be able to start in test_FileLineIterator.");
+            ASSERT(file_iter->lines.buffer_size == buf_sizes[i], "\nfailed to allocate default buffer size %zu in test_FileLineIterator, found %zu", buf_sizes[i], file_iter->lines.buffer_size);
+            ASSERT(strlen(file_iter->lines.next) == 0, "\nfailed to initialize next line to 0-length string, found %zu", strlen(file_iter->lines.next));
+            ASSERT(FileLineIterator_stop(file_iter) == ITERATOR_GO, "\nfailed to initialize LineIterator to be able to start in test_FileLineIterator.");
 
             line = NULL;
             line = FileLineIterator_next(file_iter);
-            while (file_iter->lines->stop != ITERATOR_STOP) {
+            while (FileLineIterator_stop(file_iter) != ITERATOR_STOP) {
                 ASSERT(line, "\nLineIterator_next failed to return line in test_FileLineIterator on line %zu in test file %s.", line_count, test_line_files[i]);
-                ASSERT(file_iter->lines->next_buf_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_FileLineIterator for line %zu in test_line_files %s, expected > %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], file_iter->lines->next_buf_size);
+                ASSERT(file_iter->lines.buffer_size > line_lengths[i][line_count], "\ninsufficient buffer size allocated in test_FileLineIterator for line %zu in test_line_files %s, expected > %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], file_iter->lines.buffer_size);
                 ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_FileLineIterator for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line));
                 line = NULL;
                 line = FileLineIterator_next(file_iter);
@@ -132,7 +131,7 @@ int test_FileLineIterator(void) {
             }
             FileLineIterator_del(file_iter);
         } else {
-            ASSERT(!file_iter, "\nfailed to retun null FileLineIterator in test_FileLineIterator for non-existent file %s.", test_line_files[i]);
+            ASSERT(!file_iter, "\nfailed to return null FileLineIterator in test_FileLineIterator for non-existent file %s.", test_line_files[i]);
         } 
         ASSERT(line_count == n_lines[i], "\nfailed to collect all lines in test_FileLineIterator in file %s, expected %zu, found %zu.", test_line_files[i], n_lines[i], line_count);
     }
@@ -145,10 +144,14 @@ int test_FileLineIterator(void) {
 int test_for_each(void) {
     printf("test_for_each...");
     size_t line_count = 0;
+    //char buffer[LINE_BUFFER_SIZE];
+    char * buffer = NULL;
     for (int i = 0; i < N_TEST_FILES; i++) {
+        //printf("\nin file: %s", test_line_files[i]);
         line_count = 0;
         // this should work for all, including the files that don't exist
-        for_each(char, line, FileLine, test_line_files[i]) {
+        for_each(char, line, FileLine, test_line_files[i], DEFAULT_READ_MODE, buffer, LINE_BUFFER_SIZE) {
+            //printf("\nline: %s", line);
             ASSERT(line, "\nLineIterator_next failed to return line in test_for_each on line %zu in test file %s.", line_count, test_line_files[i]);
             ASSERT(strlen(line) == line_lengths[i][line_count], "\nline length does not match expected output in test_for_each for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line));
             line_count++;
@@ -164,10 +167,12 @@ int test_for_each(void) {
 int test_for_each_enumerate(void) {
     printf("test_for_each_enumerate...");
     size_t line_count = 0;
+    //char buffer[LINE_BUFFER_SIZE];
+    char * buffer = NULL;
     for (int i = 0; i < N_TEST_FILES; i++) {
         line_count = 0;
         // this should work for all, including the files that don't exist
-        for_each_enumerate(char, line, FileLine, test_line_files[i]) {
+        for_each_enumerate(char, line, FileLine, test_line_files[i], DEFAULT_READ_MODE, buffer, LINE_BUFFER_SIZE) {
             ASSERT(line.val, "\nFileLineIterator_next failed to return line in test_for_each_enumerate on line %zu in test file %s.", line.i, test_line_files[i]);
             ASSERT(line_count == line.i, "\nfailed to enumerate the lines in test_for_each_enumerate in file %s. Lines read - 1 = %zu, enumeration = %zu.", test_line_files[i], line_count, line.i);
             ASSERT(strlen(line.val) == line_lengths[i][line_count], "\nline length does not match expected output in test_for_each_enumerate for line %zu in test file %s, expected %zu, found %zu.", line_count, test_line_files[i], line_lengths[i][line_count], strlen(line.val));
@@ -352,7 +357,8 @@ int test_TokenIterator(void) {
     char delimiters[16] = {'\0'};
     size_t ith_token;
 
-    FileLineIterator * file_iter = FileLineIterator_iter("./data/test_tokens.txt");
+    //FileLineIterator * file_iter = FileLineIterator_iter("./data/test_tokens.txt");
+    FileLineIterator * file_iter = FileLineIterator_new("./data/test_tokens.txt", DEFAULT_READ_MODE, LINE_BUFFER_SIZE);
     char * line = "";
     while (strcmp(FileLineIterator_next(file_iter), "#endheader\r\n")) {}
 
@@ -375,6 +381,7 @@ int test_TokenIterator(void) {
 
         // description
         memcpy(test, line, strlen(line)+1);
+        //printf("\nrunning test: %s",test);
         ith_token = 0;
 
         //string
@@ -395,10 +402,12 @@ int test_TokenIterator(void) {
         TokenIterator * tokens = NULL;
         if (strcmp("NULL", line)) {
             memcpy(delimiters, line, strlen(line)+1);
-            tokens = TokenIterator_iter(string_is_null ? NULL : string, delimiters);
+            //tokens = TokenIterator_iter(string_is_null ? NULL : string, delimiters);
+            tokens = TokenIterator_new(string_is_null ? NULL : string, delimiters, TOKEN_BUFFER_SIZE);
         } else {
             memcpy(delimiters, WHITESPACE, strlen(WHITESPACE)+1);
-            tokens = TokenIterator_iter(string_is_null ? NULL : string, NULL);
+            //tokens = TokenIterator_iter(string_is_null ? NULL : string, NULL);
+            tokens = TokenIterator_new(string_is_null ? NULL : string, NULL, TOKEN_BUFFER_SIZE);
         }
         
         char * token = NULL;
@@ -414,10 +423,12 @@ int test_TokenIterator(void) {
         }
         
         ASSERT(TokenIterator_stop(tokens) == ITERATOR_STOP, "\nTokenIterator failed stop in test_token_iterator. On string %s/%s with delimiters %s after %zu-th token. Last token %s", test, string, delimiters, ith_token, token);
+        TokenIterator_del(tokens);
         tokens = NULL;
         
         line = FileLineIterator_next(file_iter);
     }
+    FileLineIterator_del(file_iter);
 
     printf("PASS\n");
 
@@ -430,7 +441,8 @@ int test_array_iterators(void) {
     int arr[256] = {0};
     char type[32] = {'\0'};
 
-    FileLineIterator * file_iter = FileLineIterator_iter("./data/test_array_iterators.txt");
+    //FileLineIterator * file_iter = FileLineIterator_iter("./data/test_array_iterators.txt");
+    FileLineIterator * file_iter = FileLineIterator_new("./data/test_array_iterators.txt", DEFAULT_READ_MODE, LINE_BUFFER_SIZE);
     char * line = "";
     while (strcmp(FileLineIterator_next(file_iter), "#endheader\r\n")) {}
 
@@ -456,7 +468,9 @@ int test_array_iterators(void) {
         sscanf(String_rstrip(FileLineIterator_next(file_iter)), "%s", type);
         size_t num_arr = 0;
         {
-        for_each_enumerate(char, elem, Token, String_rstrip(FileLineIterator_next(file_iter))) {
+        //char buffer[TOKEN_BUFFER_SIZE];
+        char * buffer = NULL;
+        for_each_enumerate(char, elem, Token, String_rstrip(FileLineIterator_next(file_iter)), NULL, buffer, TOKEN_BUFFER_SIZE) {
             if (!strcmp(type, "int")) {
                 sscanf(elem.val, "%d", arr + elem.i);
                 num_arr++;
@@ -486,7 +500,8 @@ int test_array_iterators(void) {
             sscanf(line, "%zu, %zu, %lld", &start, &stop, &step);
             //printf("\nstart: %zu, stop: %zu, step: %lld", start, stop, step);
             {
-            for_each_enumerate(char, elem, Token, String_rstrip(FileLineIterator_next(file_iter))) {
+            char buffer[TOKEN_BUFFER_SIZE];
+            for_each_enumerate(char, elem, Token, String_rstrip(FileLineIterator_next(file_iter)), NULL, buffer, TOKEN_BUFFER_SIZE) {
                 if (!strcmp(type, "int")) {
                     sscanf(elem.val, "%d", res + elem.i);
                     num_res++;
@@ -495,10 +510,12 @@ int test_array_iterators(void) {
             }
 
             size_t num_found = 0;
-            for_each(int, v, intIterator, int_slice(arr, num_arr, start, stop, step)) {
+            intIterator * ints = int_slice(arr, num_arr, start, stop, step);
+            for_each(int, v, intIterator, ints) {
                 ASSERT(res[num_found] == *v, "\nfailed to slice into array in test_array_iterators, test %s, result index %zu, expected %d, found %d", test, num_found, res[num_found], *v);
                 num_found++;
             }
+            intIterator_del(ints);
 
             ASSERT(num_found == num_res, "\nfailed to find the same number of elements in slice as expected results in test_array_iterators, test %s, expected %zu, found %zu", test, num_res, num_found);
         }
@@ -506,6 +523,7 @@ int test_array_iterators(void) {
         line = String_rstrip(FileLineIterator_next(file_iter)); // #endtest
         line = FileLineIterator_next(file_iter); // next line
     }
+    FileLineIterator_del(file_iter);
 
     printf("PASS\n");
 
@@ -522,7 +540,8 @@ int test_csv_reader(void) {
 
     enum {MAX_INPUT_STRING_SIZE = 256};
 
-    FileLineIterator * file_iter = FileLineIterator_iter("./data/test_csv_reader.txt");
+    //FileLineIterator * file_iter = FileLineIterator_iter("./data/test_csv_reader.txt");
+    FileLineIterator * file_iter = FileLineIterator_new("./data/test_csv_reader.txt", DEFAULT_READ_MODE, LINE_BUFFER_SIZE);
     char * line = "";
     while (strcmp(FileLineIterator_next(file_iter), "#endheader\r\n")) {}
 
@@ -565,7 +584,8 @@ int test_csv_reader(void) {
         line = String_strip(FileLineIterator_next(file_iter));
         TokenIterator * tokens = NULL;
         while (strcmp("#endtest", line)) {
-            tokens = TokenIterator_iter(line, ",");
+            //tokens = TokenIterator_iter(line, ",");
+            tokens = TokenIterator_new(line, ",", TOKEN_BUFFER_SIZE);
             char * func = TokenIterator_next(tokens);
             //printf("\nfunction: %s", func);
             if (!strcmp(func, "get_cell")) {
@@ -617,7 +637,8 @@ int test_csv_reader(void) {
                     sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &step);
                     founds = CSVFile_get_column_slice(csv, ifie, start, stop, step);
                 }
-                TokenIterator * expecteds = TokenIterator_iter(String_strip(TokenIterator_next(tokens)), " ");
+                //TokenIterator * expecteds = TokenIterator_iter(String_strip(TokenIterator_next(tokens)), " ");
+                TokenIterator * expecteds = TokenIterator_new(String_strip(TokenIterator_next(tokens)), " ", TOKEN_BUFFER_SIZE);
                 char * expected = TokenIterator_next(expecteds);
                 char * found = CSVFileIterator_next(founds);
                 while (TokenIterator_stop(expecteds) != ITERATOR_STOP) {
@@ -627,6 +648,10 @@ int test_csv_reader(void) {
                     found = CSVFileIterator_next(founds);
                 }
                 ASSERT(CSVFileIterator_stop(founds) == ITERATOR_STOP, "\nfailed to find the correct number of elements in %s for test %s in file %s for column %zu", func, test, file_path, ifie);
+                TokenIterator_del(expecteds);
+                expecteds = NULL;
+                CSVFileIterator_del(founds);
+                founds = NULL;
             } else if (String_starts_with(func, "get_row")) {
                 size_t irec = 0;
                 CSVFileIterator * founds = NULL;
@@ -641,7 +666,8 @@ int test_csv_reader(void) {
                     sscanf(String_strip(TokenIterator_next(tokens)), "%zu", &step);
                     founds = CSVFile_get_row_slice(csv, irec, start, stop, step);
                 }
-                TokenIterator * expecteds = TokenIterator_iter(String_strip(TokenIterator_next(tokens)), " ");
+                //TokenIterator * expecteds = TokenIterator_iter(String_strip(TokenIterator_next(tokens)), " ");
+                TokenIterator * expecteds = TokenIterator_new(String_strip(TokenIterator_next(tokens)), " ", TOKEN_BUFFER_SIZE);
                 char * expected = TokenIterator_next(expecteds);
                 char * found = CSVFileIterator_next(founds);
                 while (TokenIterator_stop(expecteds) != ITERATOR_STOP) {
@@ -651,6 +677,10 @@ int test_csv_reader(void) {
                     found = CSVFileIterator_next(founds);
                 }
                 ASSERT(CSVFileIterator_stop(founds) == ITERATOR_STOP, "\nreturned too many elementsrrect number of elements in %s for test %s in file %s for column %zu", func, test, file_path, irec);
+                TokenIterator_del(expecteds);
+                expecteds = NULL;
+                CSVFileIterator_del(founds);
+                founds = NULL;
             } else {
                 printf("\ntest function %s for test not supported in test %s with file %s", func, test, file_path);
             }
@@ -666,6 +696,7 @@ int test_csv_reader(void) {
         line = FileLineIterator_next(file_iter);
         //printf("\nnext_line: %s", line);
     }
+    FileLineIterator_del(file_iter);
 
     printf("PASS\n");
 

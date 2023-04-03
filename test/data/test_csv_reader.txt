@@ -123,5 +123,13 @@ true
 5
 %d
 get_cell, 4, 3, 16
+get_column, 3, 4 8 12 16
 get_column, 2, 3 7 11 15
+get_column, 1, 2 6 10 14
+get_column, 0, 1 5 9 13
+get_row, 0, this has a header
+get_row, 1, 1 2 3 4
+get_row, 2, 5 6 7 8
+get_row, 3, 9 10 11 12
+get_row, 4, 13 14 15 16
 #endtest

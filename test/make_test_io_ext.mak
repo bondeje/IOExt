@@ -3,7 +3,8 @@ CC = gcc
 
 EXT = 
 LFLAGS = 
-CFLAGS = -std=c99 -O2 -Wall -D__STDC_WANT_LIB_EXT2__=1 -pedantic
+CFLAGS = -std=c99 -O2 -Wall -pedantic
+IFLAGS = -I../include
 
 ifeq ($(OS),Windows_NT)
 	# might have to encapsulate with a check for MINGW. Need this because Windows f-s up printf with size_t and MINGW only handles it with their own implementation of stdio
@@ -22,6 +23,7 @@ ifeq ($(OS),Windows_NT)
     #endif
 else
     UNAME_S := $(shell uname -s)
+	CFLAGS += -D__STDC_WANT_LIB_EXT2__=1
     ifeq ($(UNAME_S),Linux)
 		# needed because linux must link to the math
 		LFLAGS += -lm
@@ -47,4 +49,4 @@ CFLAGS += -o test_io_ext$(EXT)
 all: build
 
 build:
-	$(CC) $(CFLAGS) test_io_ext.c ../src/io_ext.c ../src/iterators.c ../src/csv.c $(LFLAGS)
+	$(CC) $(CFLAGS) $(IFLAGS) test_io_ext.c ../src/io_ext.c ../src/csv.c ../src/cl_iterators.c ../src/cl_utils.c $(LFLAGS)

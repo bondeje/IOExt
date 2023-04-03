@@ -36,13 +36,13 @@ CSVRecord * CSVRecord_new(char mode, size_t start, size_t init_field_alloc) {
     if (!init_field_alloc) {
         init_field_alloc = DEFAULT_N_FIELDS;
     }
-    CSVRecord * new_record = (CSVRecord * ) CSV_MALLOC(sizeof(CSVRecord));
+    CSVRecord * new_record = (CSVRecord * ) IO_MALLOC(sizeof(CSVRecord));
     if (!new_record) {
         goto failed_csvrecord_alloc;
     }
 
     if (mode == CSV_READER || mode == CSV_AMENDER) {
-        new_record->field_pos = (size_t *) CSV_MALLOC(sizeof(size_t) * (init_field_alloc + 1));
+        new_record->field_pos = (size_t *) IO_MALLOC(sizeof(size_t) * (init_field_alloc + 1));
         if (!new_record->field_pos) {
             goto failed_field_pos_alloc;
         }
@@ -51,7 +51,7 @@ CSVRecord * CSVRecord_new(char mode, size_t start, size_t init_field_alloc) {
     }
 
     if (mode == CSV_WRITER || mode == CSV_AMENDER) {
-        new_record->fields = (char **) CSV_MALLOC(sizeof(size_t) * (init_field_alloc));
+        new_record->fields = (char **) IO_MALLOC(sizeof(size_t) * (init_field_alloc));
         if (!new_record->fields) {
             goto failed_fields_alloc;
         }
@@ -65,10 +65,10 @@ CSVRecord * CSVRecord_new(char mode, size_t start, size_t init_field_alloc) {
 
 failed_fields_alloc:
     if (new_record->field_pos) {
-        CSV_FREE(new_record->field_pos);
+        IO_FREE(new_record->field_pos);
     }
 failed_field_pos_alloc:
-    CSV_FREE(new_record);
+    IO_FREE(new_record);
 failed_csvrecord_alloc:
     return NULL;
 }
@@ -99,19 +99,19 @@ void CSVRecord_init(CSVRecord * csvr, char mode, size_t start, size_t init_field
 
 void CSVRecord_del(CSVRecord * csvr) {
     if (csvr->field_pos) {
-        CSV_FREE(csvr->field_pos);
+        IO_FREE(csvr->field_pos);
     }
     if (csvr->fields) {
-        CSV_FREE(csvr->fields);
+        IO_FREE(csvr->fields);
     }
-    CSV_FREE(csvr);
+    IO_FREE(csvr);
 }
 
 // only use in CSV_READER mode or when adding a new record, otherwise do not use in CSV_AMENDER mode
 enum csv_status CSVRecord_append_field_pos(CSVRecord * csvr, size_t pos) {
     if (csvr->n_fields == csvr->n_fields_alloc) {
         bool result;
-        RESIZE_REALLOC(result, csvr->field_pos, size_t, csvr->n_fields_alloc*RESIZE_SCALE + 1)
+        RESIZE_REALLOC(result, size_t, csvr->field_pos, csvr->n_fields_alloc*RESIZE_SCALE + 1)
         if (result) {
             csvr->n_fields_alloc *= RESIZE_SCALE;
             for (size_t i = csvr->n_fields; i < csvr->n_fields_alloc; i++) {
@@ -129,7 +129,7 @@ CSVFile * CSVFile_new(char * filename, char mode, bool has_header, char * line_e
     if (!(mode == CSV_READER || mode == CSV_WRITER || mode == CSV_AMENDER)) {
         goto failed_mode;
     }
-    CSVFile * new_csv = (CSVFile *) CSV_MALLOC(sizeof(CSVFile));
+    CSVFile * new_csv = (CSVFile *) IO_MALLOC(sizeof(CSVFile));
     if (!new_csv) {
         goto failed_csvfile_alloc;
     }
@@ -137,7 +137,7 @@ CSVFile * CSVFile_new(char * filename, char mode, bool has_header, char * line_e
     new_csv->n_records_alloc = DEFAULT_N_RECORDS;
 
     // available for READER/WRITER/AMENDER
-    new_csv->records = (CSVRecord **) CSV_MALLOC(sizeof(CSVRecord *) * new_csv->n_records_alloc);
+    new_csv->records = (CSVRecord **) IO_MALLOC(sizeof(CSVRecord *) * new_csv->n_records_alloc);
     if (!new_csv->records) {
         goto failed_records_alloc;
     }
@@ -157,10 +157,10 @@ CSVFile * CSVFile_new(char * filename, char mode, bool has_header, char * line_e
     return new_csv;
    
 failed_init:
-    CSV_FREE(new_csv->records);
+    IO_FREE(new_csv->records);
 
 failed_records_alloc:
-    CSV_FREE(new_csv);
+    IO_FREE(new_csv);
 
 failed_csvfile_alloc:
 failed_mode:
@@ -217,7 +217,7 @@ void CSVFile_init(CSVFile * csv, char * filename, char mode, bool has_header, ch
 enum csv_status CSVFile_append_record(CSVFile * csv, size_t pos) {
     if (csv->n_records == csv->n_records_alloc) {
         int res = true;
-        RESIZE_REALLOC(res, csv->records, CSVRecord *, csv->n_records_alloc * RESIZE_SCALE)
+        RESIZE_REALLOC(res, CSVRecord *, csv->records, csv->n_records_alloc * RESIZE_SCALE)
         if (!res) {
             return CSV_MEMORY_ERROR;
         }
@@ -410,7 +410,7 @@ enum csv_status CSVFile_read(CSVFile * csv) {
                     // if mode is reader, try to free extraneous memory
                 }
                 if (csv->mode == CSV_READER) {
-                    RESIZE_REALLOC(res, csv->records, CSVRecord*, csv->n_records)
+                    RESIZE_REALLOC(res, CSVRecord *, csv->records, csv->n_records)
                     if (res) {
                         csv->n_records_alloc = csv->n_records;
                     }
@@ -418,7 +418,7 @@ enum csv_status CSVFile_read(CSVFile * csv) {
                     for (size_t i = 0; i < csv->n_records; i++) {
                         // probably should have a function to hide the ->field_pos member
                         //printf("\nallocation before %zu, number of positions %zu", csv->records[i]->n_fields_alloc+1, csv->records[i]->n_fields+1);
-                        RESIZE_REALLOC(res, csv->records[i]->field_pos, size_t, csv->records[i]->n_fields+1)
+                        RESIZE_REALLOC(res, size_t, csv->records[i]->field_pos, csv->records[i]->n_fields+1)
                         if (res) {
                             csv->records[i]->n_fields_alloc = csv->records[i]->n_fields;
                             //printf("\nallocation after %zu, number of positions %zu", csv->records[i]->n_fields_alloc+1, csv->records[i]->n_fields+1);
@@ -543,7 +543,7 @@ enum csv_status CSVFile_get_cell(CSVFile * csv, size_t record, size_t field, cha
     return CSV_SUCCESS;
 }
 
-CSVFileIterator * CSVFileIterator_new(CSVFile * csv, size_t index, enum csv_axis axis, size_t next_buffer_size) {
+CSVFileIterator * CSVFileIterator_new(CSVFile * csv, size_t index, enum csv_axis axis, size_t buffer_size) {
     if (!csv) {
         return NULL;
     } else if (axis == CSV_ROW && index >= csv->n_records) {
@@ -565,51 +565,68 @@ CSVFileIterator * CSVFileIterator_new(CSVFile * csv, size_t index, enum csv_axis
         return NULL;
     }
 
-    if (!next_buffer_size) {
-        next_buffer_size = FIELD_BUFFER_SIZE;
+    if (!buffer_size) {
+        buffer_size = FIELD_BUFFER_SIZE;
     }
 
-    csv_iter->next = (char *) IO_MALLOC(sizeof(char)*next_buffer_size);
-    if (!csv_iter->next) {
+    char * buffer = (char *) IO_MALLOC(sizeof(char)*buffer_size);
+    if (!buffer) {
         IO_FREE(csv_iter);
         return NULL;
     }
 
-    CSVFileIterator_init(csv_iter, csv, index, axis, next_buffer_size);
+    CSVFileIterator_init(csv_iter, csv, index, axis, buffer, buffer_size);
+    csv_iter->buffer_reclaim = true;
 
     return csv_iter;
 }
-
+/*
 CSVFileIterator * CSVFileIterator_iter3(CSVFile * csv, size_t index, enum csv_axis axis) {
     return CSVFileIterator_new(csv, index, axis, FIELD_BUFFER_SIZE);
 }
+*/
 
-void CSVFileIterator_init(CSVFileIterator * csv_iter, CSVFile * csv, size_t index, enum csv_axis axis, size_t next_buffer_size) {
+void CSVFileIterator_init(CSVFileIterator * csv_iter, CSVFile * csv, size_t index, enum csv_axis axis, char * buffer, size_t buffer_size) {
     csv_iter->csv = csv;
     csv_iter->index = index;
     csv_iter->axis = axis;
     csv_iter->stop = ITERATOR_GO;
-    csv_iter->next_size = next_buffer_size;
-    for (size_t i = 0; i < csv_iter->next_size; i++) {
+    csv_iter->buffer_size = buffer_size;
+    csv_iter->next = NULL;
+    if (!buffer) {
+        if (!buffer_size) {
+            buffer_size = FIELD_BUFFER_SIZE;
+        }
+        buffer = (char*) IO_MALLOC(sizeof(char) * buffer_size);
+        if (!buffer) {
+            csv_iter->stop = ITERATOR_STOP;
+            return;
+        }
+        csv_iter->buffer_reclaim = true;
+    } else {
+        csv_iter->buffer_reclaim = false;
+    }
+    csv_iter->next = buffer;
+    for (size_t i = 0; i < csv_iter->buffer_size; i++) {
         csv_iter->next[i] = '\0';
     }
 
     if (axis == CSV_COLUMN) {
         if (csv->has_header) {
-            csv_iter->start_ = 1;
+            csv_iter->start = 1;
             csv_iter->axis_index = 1;
         } else {
-            csv_iter->start_ = 0;
+            csv_iter->start = 0;
             csv_iter->axis_index = 0;
         }
-        csv_iter->stop_ = csv->n_records;
+        csv_iter->end = csv->n_records;
     } else {
-        csv_iter->start_ = 0;
+        csv_iter->start = 0;
         csv_iter->axis_index = 0;
-        csv_iter->stop_ = csv->records[csv_iter->index]->n_fields;
+        csv_iter->end = csv->records[csv_iter->index]->n_fields;
     }
 
-    csv_iter->step_ = 1;
+    csv_iter->step = 1;
 }
 
 void CSVFileIterator_del(CSVFileIterator * csv_iter) {
@@ -624,7 +641,7 @@ char * CSVFileIterator_next(CSVFileIterator * csv_iter) {
         return NULL;
     }
 
-    if (csv_iter->axis_index >= csv_iter->stop_) {
+    if (csv_iter->axis_index >= csv_iter->end) {
         csv_iter->stop = ITERATOR_STOP;
         return NULL;
     }
@@ -637,18 +654,18 @@ char * CSVFileIterator_next(CSVFileIterator * csv_iter) {
         record = csv_iter->index;
         field = csv_iter->axis_index;
     }
-    csv_iter->axis_index += csv_iter->step_;
+    csv_iter->axis_index += csv_iter->step;
     size_t size = csv_iter->csv->records[record]->field_pos[field+1] - csv_iter->csv->records[record]->field_pos[field] - 1;
 
     // realloc if csv_iter->next is too small to receive the field
     int res = false;
-    if (size + 1 >= csv_iter->next_size) {
-        size_t new_size = (size + 1 > 2*csv_iter->next_size) ? size + 1 : 2*csv_iter->next_size;
-        RESIZE_REALLOC(res, csv_iter->next, char, new_size);
+    if (size + 1 >= csv_iter->buffer_size) {
+        size_t new_size = (size + 1 > 2*csv_iter->buffer_size) ? size + 1 : 2*csv_iter->buffer_size;
+        RESIZE_REALLOC(res, char, csv_iter->next, new_size);
         if (!res) {
             return NULL;
         }
-        csv_iter->next_size = new_size;
+        csv_iter->buffer_size = new_size;
     }
 
     // retrieve the cell
@@ -664,10 +681,17 @@ enum iterator_status CSVFileIterator_stop(CSVFileIterator * csv_iter) {
     if (!csv_iter) {
         return ITERATOR_STOP;
     }
+    if (csv_iter->stop == ITERATOR_STOP && csv_iter->buffer_reclaim) {
+        IO_FREE(csv_iter->next);
+        csv_iter->next = NULL;
+        csv_iter->buffer_reclaim = false;
+    }
+    /*
     if (csv_iter->stop == ITERATOR_STOP) {
         CSVFileIterator_del(csv_iter);
         return ITERATOR_STOP;
     }
+    */
     return csv_iter->stop;
 }
 
@@ -677,10 +701,10 @@ CSVFileIterator * CSVFile_get_column(CSVFile * csv, size_t icolumn) {
 
 CSVFileIterator * CSVFile_get_column_slice(CSVFile * csv, size_t icolumn, size_t start, size_t stop, size_t step) {
     CSVFileIterator * out = CSVFile_get_column(csv, icolumn);
-    out->start_ = start;
+    out->start = start;
     out->axis_index = start;
-    out->stop_ = stop;
-    out->step_ = step;
+    out->end = stop;
+    out->step = step;
     return out;
 }
 
@@ -690,16 +714,17 @@ CSVFileIterator *  CSVFile_get_row(CSVFile * csv, size_t irow) {
 
 CSVFileIterator * CSVFile_get_row_slice(CSVFile * csv, size_t irow, size_t start, size_t stop, size_t step) {
     CSVFileIterator * out = CSVFile_get_row(csv, irow);
-    out->start_ = start;
+    out->start = start;
     out->axis_index = start;
-    out->stop_ = stop;
-    out->step_ = step;
+    out->end = stop;
+    out->step = step;
     return out;
 }
-
+/*
 CSVFileIterator * CSVFileIteratorIterator_iter(CSVFileIterator * csv_iter) {
     return csv_iter;
 }
+*/
 char * CSVFileIteratorIterator_next(CSVFileIteratorIterator * csv_iter) {
     return CSVFileIterator_next(csv_iter);
 }
@@ -715,6 +740,6 @@ void CSVFile_del(CSVFile * csv) {
     for (size_t i = 0; i < csv->n_records; i++) {
         CSVRecord_del(csv->records[i]);
     }
-    CSV_FREE(csv->records);
-    CSV_FREE(csv);
+    IO_FREE(csv->records);
+    IO_FREE(csv);
 }

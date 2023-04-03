@@ -81,30 +81,34 @@ char *  String_strip(char * string) {
 }
 
 // fully qualified constructor for FileLineIterator object
-FileLineIterator * FileLineIterator_new(const char * filename, const char * mode, size_t next_buf_size) {
+FileLineIterator * FileLineIterator_new(const char * filename, const char * mode, size_t buffer_size) {
     FileLineIterator * file_iter = (FileLineIterator *) IO_MALLOC(sizeof(FileLineIterator));
     if (!file_iter) {
         return NULL;
     }
 
-    file_iter->lines = LineIterator_new(fopen(filename, mode), next_buf_size);
-    if (!file_iter->lines) {
+    if (!buffer_size) {
+        buffer_size = LINE_BUFFER_SIZE;
+    }
+
+    char * buffer = (char *) IO_MALLOC(sizeof(char) * buffer_size);
+    if (!buffer) {
         IO_FREE(file_iter);
         return NULL;
     }
 
-    // since we leave opening the file to FileLineIterator_init, it can fail. To check, for failures, 
-    // we look at file_iter->lines->_h for a non-NULL handle
-    if (!file_iter->lines->_h) {
-        FileLineIterator_del(file_iter); // can just call FileLineIterator_del since all necessary components have been allocated
+    FileLineIterator_init(file_iter, filename, mode, buffer, buffer_size);
+    file_iter->lines.buffer_reclaim = true;
+
+    if (!file_iter->lines.handle) {
+        IO_FREE(buffer);
+        IO_FREE(file_iter);
         return NULL;
     }
 
-    FileLineIterator_init(file_iter, filename, mode, next_buf_size);
-
     return file_iter;
 }
-
+/*
 // simple constructor of a FileLineIterator from a filename and read mode, uses default buffer size (stdio.BUF_SIZE)
 FileLineIterator * FileLineIterator_iter2(const char * filename, const char * mode) {
     return FileLineIterator_new(filename, mode, LINE_BUFFER_SIZE);
@@ -114,21 +118,24 @@ FileLineIterator * FileLineIterator_iter2(const char * filename, const char * mo
 FileLineIterator * FileLineIterator_iter1(const char * filename) {
     return FileLineIterator_new(filename, DEFAULT_READ_MODE, LINE_BUFFER_SIZE);
 }
+*/
 
 // initializes all the internal variables of the FileLineIterator object
-void FileLineIterator_init(FileLineIterator * file_iter, const char * filename, const char * mode, size_t next_buf_size) {
+//void FileLineIterator_init(FileLineIterator * file_iter, const char * filename, const char * mode, size_t buffer_size) {
+void FileLineIterator_init(FileLineIterator * file_iter, const char * filename, const char * mode, char * buffer, size_t buffer_size) {
     file_iter->filename = filename;
     file_iter->mode = mode;
-
-    // LineIterator_init is done implicitly in FileLineIterator_new
-    // LineIterator_init(file_iter->lines, fopen(filename, mode), LINE_BUFFER_SIZE);
+    LineIterator_init((LineIterator*) file_iter, fopen(filename, mode), buffer, buffer_size);
 }
 
 // destroys the FileLineIterator as well as the underlying LineIterator objects
 void FileLineIterator_del(FileLineIterator * file_iter) {
-    fclose(file_iter->lines->_h); // FileLineIterator owns the FILE handle
-    LineIterator_del(file_iter->lines);
-    file_iter->lines = NULL;
+    if (file_iter->lines.handle) {
+        fclose(file_iter->lines.handle); // FileLineIterator owns the FILE handle
+        file_iter->lines.handle = NULL;
+    }
+    //LineIterator_del(file_iter->lines);
+    //file_iter->lines = NULL;
     IO_FREE(file_iter);
 }
 
@@ -137,7 +144,7 @@ char * FileLineIterator_next(FileLineIterator * file_iter) {
     if (!file_iter) {
         return NULL;
     }
-    return LineIterator_next(file_iter->lines);
+    return LineIterator_next((LineIterator*)file_iter);
 }
 
 // destroys the FileLineIterator if stops and tells caller whether to stop or not
@@ -145,17 +152,26 @@ enum iterator_status FileLineIterator_stop(FileLineIterator * file_iter) {
     if (!file_iter) {
         return ITERATOR_STOP;
     }
+    enum iterator_status result = LineIterator_stop((LineIterator*)file_iter);
+    if (result == ITERATOR_STOP && file_iter->lines.handle) {
+        fclose(file_iter->lines.handle);
+        file_iter->lines.handle = NULL;
+    }
+    return result;
     // used file_iter->lines->stop, but after update to have file_iter->stop track this value, should be equivalent
+    /*
     if (file_iter->lines->stop == ITERATOR_STOP) {
         FileLineIterator_del(file_iter);
         return ITERATOR_STOP;
     }
+    
     return file_iter->lines->stop;
+    */
 }
 
 // fully qualified LineIterator constructor from file stream and a buffer size
-LineIterator * LineIterator_new(FILE * fstr, size_t next_buf_size) {
-    if (!fstr) {
+LineIterator * LineIterator_new(FILE * handle, size_t buffer_size) {
+    if (!handle) {
         return NULL;
     }
     LineIterator * lines = (LineIterator *) IO_MALLOC(sizeof(LineIterator));
@@ -163,75 +179,113 @@ LineIterator * LineIterator_new(FILE * fstr, size_t next_buf_size) {
         return NULL;
     }
 
-    if (!next_buf_size) {
-        next_buf_size = LINE_BUFFER_SIZE;
+    if (!buffer_size) {
+        buffer_size = LINE_BUFFER_SIZE;
     }
 
-    lines->next = (char *) IO_MALLOC(sizeof(char) * next_buf_size);
-    if (!lines->next) {
+    char * buffer = (char *) IO_MALLOC(sizeof(char) * buffer_size);
+    if (!buffer) {
         IO_FREE(lines);
         return NULL;
     }
 
-    LineIterator_init(lines, fstr, next_buf_size);
+    LineIterator_init(lines, handle, buffer, buffer_size);
+    lines->buffer_reclaim = true;
 
     return lines;
 }
-
+/*
 // create a LineIterator from just a file stream
-LineIterator * LineIterator_iter1(FILE * fstr) {
-    return LineIterator_new(fstr, LINE_BUFFER_SIZE);
+LineIterator * LineIterator_iter1(FILE * handle) {
+    return LineIterator_new(handle, LINE_BUFFER_SIZE);
 }
+*/
 
 // initializes all the internal variables of the LineIterator
-void LineIterator_init(LineIterator * lines, FILE * fstr, size_t next_buf_size) {
-    lines->_h = fstr;
+//void LineIterator_init(LineIterator * lines, FILE * handle, size_t buffer_size) {
+void LineIterator_init(LineIterator * lines, FILE * handle, char * buffer, size_t buffer_size) {
+    if (!lines) {
+        return;
+    }
+    if (!handle) {
+        lines->handle = NULL;
+        lines->stop = ITERATOR_STOP;
+        return;
+    }
+    if (!buffer) {
+        if (!buffer_size) {
+            buffer_size = LINE_BUFFER_SIZE;
+        }
+        buffer = (char*) IO_MALLOC(sizeof(char) * buffer_size);
+        if (!buffer) {
+            lines->stop = ITERATOR_STOP;
+            return;
+        }
+        lines->buffer_reclaim = true;
+    } else {
+        lines->buffer_reclaim = false;
+    }
+    lines->handle = handle;
     lines->stop = ITERATOR_GO;
-    for (size_t i = 0; i < next_buf_size; i++) {
+    lines->next = buffer;
+    for (size_t i = 0; i < buffer_size; i++) {
         lines->next[i] = '\0';
     }
-    lines->next_buf_size = next_buf_size;
+    lines->buffer_size = buffer_size;
 }
 
 // destroys the LineIterator object
 void LineIterator_del(LineIterator * lines) {
-    IO_FREE(lines->next);
-    lines->next = NULL;
+    if (!lines) {
+        return;
+    }
+    if (lines->buffer_reclaim) {
+        IO_FREE(lines->next);
+        lines->next = NULL;
+        lines->buffer_reclaim = false;
+    }
     IO_FREE(lines);
 }
 
 // return pointer to the next line of characters, nul terminated
 char * LineIterator_next(LineIterator * lines) {
-    if (!lines) {
+    if (!lines || !lines->handle || LineIterator_stop(lines) == ITERATOR_STOP) {
         return NULL;
     }
-
+/*
 #if defined(_posix_) || defined(__STDC_ALLOC_LIB__)
-    if (getline(&lines->next, &lines->next_buf_size, lines->_h) <= 0) {
-        if (feof(lines->_h)) {
+    if (getline(&lines->next, &lines->buffer_size, lines->handle) <= 0) {
+        if (feof(lines->handle)) {
             lines->stop = ITERATOR_STOP;
         }
         return NULL;
     }
 #else // basically for Windows
-
+*/
     // this is the non-posix version. For posix, use getline() in stdio.h to update LineIterator
-    char * test = fgets(lines->next, lines->next_buf_size, lines->_h);
+    //printf("\nbuffer at %p, status = %s", (void*)lines->next, (lines->stop == ITERATOR_STOP) ? "stopped" : "running");
+    char * test = fgets(lines->next, lines->buffer_size, lines->handle);
     if (!test) { // fgets failed or EOF is encountered immediately
-        if (feof(lines->_h)) {
+        if (feof(lines->handle)) {
             lines->stop = ITERATOR_STOP;
         }
         return NULL;
     }
     size_t nchar = strlen(lines->next); // strlen is O(n)
-    if (!feof(lines->_h) && test[nchar-1] != '\n') { // buffer was not large enough
+    if (!feof(lines->handle) && test[nchar-1] != '\n') { // buffer was not large enough
+        if (!lines->buffer_reclaim) {
+            printf("ERROR: insufficient buffer size allocated in LineIterator. stopping iteration\n");
+            lines->stop = ITERATOR_STOP;
+            return NULL;
+        }
+
         long long int offset;
         // find the minimum size required for the new buffer
         size_t new_buf_size = nchar;
-        while (!feof(lines->_h) && (fgetc(lines->_h) != '\n')) {
+        while (!feof(lines->handle) && (fgetc(lines->handle) != '\n')) {
             new_buf_size++;
         }
-        if (feof(lines->_h)) {
+        if (feof(lines->handle)) {
             new_buf_size += 1;
             offset = -((long long int)new_buf_size - 2); // to accommodate the '\n\0' line terminator
         } else {
@@ -247,20 +301,20 @@ char * LineIterator_next(LineIterator * lines) {
 
         // update LineIterator
         lines->next = new_buf;
-        lines->next_buf_size = new_buf_size;
+        lines->buffer_size = new_buf_size;
 
         // initialize new elements in new buffer
-        for (size_t i = lines->next_buf_size; i < new_buf_size; i++) {
+        for (size_t i = lines->buffer_size; i < new_buf_size; i++) {
             lines->next[i] = '\0';
         }
 
         // reset file stream back to beginning of current line
-        fseek(lines->_h, offset, SEEK_CUR); // need to validate that this resets
+        fseek(lines->handle, offset, SEEK_CUR); // need to validate that this resets
 
         return LineIterator_next(lines); // re-try
     }
     
-#endif // _posix_ || __STDC_ALLOC_LIB__
+//#endif // _posix_ || __STDC_ALLOC_LIB__
 
     // either end of file was encountered or last character is a linefeed. In this case test is lines->next
     return lines->next;   
@@ -273,16 +327,18 @@ enum iterator_status LineIterator_stop(LineIterator * lines) {
     if (!lines) {
         return ITERATOR_STOP;
     }
-    if (lines->stop == ITERATOR_STOP) {
-        LineIterator_del(lines);
-        return ITERATOR_STOP;
+    if (lines->stop == ITERATOR_STOP && lines->buffer_reclaim) {
+        //printf("\nLineIterator stopping...reclaiming buffer");
+        IO_FREE(lines->next);
+        lines->next = NULL;
+        lines->buffer_reclaim = false;
     }
     return lines->stop;
 }
 
 // fully qualified constructor for TokenIterator object
-// if delimiters is an empty string (strlen(delimiters) == 0) or NULL, uses WHITESPACE delimiters and _group is set to true (contiguous whitespace is treated as 1 delimiter)
-TokenIterator * TokenIterator_new(char * string, char * delimiters, size_t next_buf_size) {
+// if delimiters is an empty string (strlen(delimiters) == 0) or NULL, uses WHITESPACE delimiters and group is set to true (contiguous whitespace is treated as 1 delimiter)
+TokenIterator * TokenIterator_new(char * string, char * delimiters, size_t buffer_size) {
     if (!string) {
         return NULL;
     }
@@ -291,21 +347,22 @@ TokenIterator * TokenIterator_new(char * string, char * delimiters, size_t next_
         return NULL;
     }
 
-    if (!next_buf_size) {
-        next_buf_size = TOKEN_BUFFER_SIZE;
+    if (!buffer_size) {
+        buffer_size = TOKEN_BUFFER_SIZE;
     }
 
-    tokens->next = (char *) IO_MALLOC(sizeof(char) * next_buf_size);
-    if (!tokens->next) {
+    char * buffer = (char *) IO_MALLOC(sizeof(char) * buffer_size);
+    if (!buffer) {
         IO_FREE(tokens);
         return NULL;
     }
 
-    TokenIterator_init(tokens, string, delimiters, next_buf_size);
+    TokenIterator_init(tokens, string, delimiters, buffer, buffer_size);
+    tokens->buffer_reclaim = true;
 
     return tokens;
 }
-
+/*
 // simple constructor of a TokenIterator from a filename and read mode, uses default buffer size (stdio.BUF_SIZE)
 TokenIterator * TokenIterator_iter2(char * string, char * delimiters) {
     return TokenIterator_new(string, delimiters, TOKEN_BUFFER_SIZE);
@@ -315,21 +372,41 @@ TokenIterator * TokenIterator_iter2(char * string, char * delimiters) {
 TokenIterator * TokenIterator_iter1(char * string) {
     return TokenIterator_new(string, NULL, TOKEN_BUFFER_SIZE);
 }
+*/
 
 // initializes all the internal variables of the TokenIterator object
-void TokenIterator_init(TokenIterator * tokens, char * string, char * delimiters, size_t next_buf_size) {
+//void TokenIterator_init(TokenIterator * tokens, char * string, char * delimiters, size_t buffer_size) {
+void TokenIterator_init(TokenIterator * tokens, char * string, char * delimiters, char * buffer, size_t buffer_size) {
+    if (!tokens) {
+        return;
+    }
     tokens->string = string;
+    tokens->next = NULL;
+    if (!buffer) {
+        if (!buffer_size) {
+            buffer_size = LINE_BUFFER_SIZE;
+        }
+        buffer = (char*) IO_MALLOC(sizeof(char) * buffer_size);
+        if (!buffer) {
+            tokens->stop = ITERATOR_STOP;
+            return;
+        }
+        tokens->buffer_reclaim = true;
+    } else {
+        tokens->buffer_reclaim = false;
+    }
+    tokens->next = buffer;
     if (delimiters && (strlen(delimiters) > 0)) {
-        tokens->_group = false;
+        tokens->group = false;
         tokens->delimiters = delimiters;
     } else {
-        tokens->_group = true;
+        tokens->group = true;
         tokens->delimiters = WHITESPACE;
     }
-    for (size_t i = 0; i < next_buf_size; i++) {
+    for (size_t i = 0; i < buffer_size; i++) {
         tokens->next[i] = '\0';
     }
-    tokens->next_buf_size = next_buf_size;
+    tokens->buffer_size = buffer_size;
     tokens->loc = -1;
 
     tokens->stop = ITERATOR_GO;
@@ -337,8 +414,14 @@ void TokenIterator_init(TokenIterator * tokens, char * string, char * delimiters
 
 // destroys the TokenIterator as well as the underlying LineIterator objects
 void TokenIterator_del(TokenIterator * tokens) {
-    IO_FREE(tokens->next);
-    tokens->next = NULL;
+    if (!tokens) {
+        return;
+    }
+    if (tokens->buffer_reclaim) {
+        IO_FREE(tokens->next);
+        tokens->next = NULL;
+        tokens->buffer_reclaim = false;
+    }
     IO_FREE(tokens);
 }
 
@@ -357,7 +440,7 @@ char * TokenIterator_next(TokenIterator * tokens) {
     }
     char * start;
     size_t next_size;
-    if (tokens->_group) {
+    if (tokens->group) {
         while (is_in_delimiter_set(tokens->string[tokens->loc+1], tokens->delimiters)) {
             tokens->loc++;
         }
@@ -425,16 +508,21 @@ char * TokenIterator_next(TokenIterator * tokens) {
     //printf("next_size = %zu, tokens->loc = %lld\n", next_size, tokens->loc);
 
     // check whether buffer is large enough and resize if necessary
-    if (next_size >= tokens->next_buf_size) {
+    if (next_size >= tokens->buffer_size) {
+        if (!tokens->buffer_reclaim) {
+            printf("ERROR: insufficient buffer size allocated to TokenIterator. stopping iteration\n");
+            tokens->stop = ITERATOR_STOP;
+            return NULL;
+        }
         char * new_buf = (char *) IO_REALLOC(tokens->next, sizeof(char) * (next_size + 1)); // probably should re-alloc more intelligently to reduce number of allocations
         if (!new_buf) {
             return NULL;// TODO: CONSIDER: how to handle failures to realloc while failing to capture full line...maybe just proceed as normal?
         }
 
         tokens->next = new_buf;
-        tokens->next_buf_size = next_size + 1;
+        tokens->buffer_size = next_size + 1;
 
-        for (size_t i = tokens->next_buf_size; i < next_size + 1; i++) {
+        for (size_t i = tokens->buffer_size; i < next_size + 1; i++) {
             tokens->next[i] = '\0';
         }
     }
@@ -450,10 +538,11 @@ enum iterator_status TokenIterator_stop(TokenIterator * tokens) {
     if (!tokens) {
         return ITERATOR_STOP;
     }
-    // used file_iter->lines->stop, but after update to have file_iter->stop track this value, should be equivalent
-    if (tokens->stop == ITERATOR_STOP) {
-        TokenIterator_del(tokens);
-        return ITERATOR_STOP;
+    if (tokens->stop == ITERATOR_STOP && tokens->buffer_reclaim) {
+        //printf("\nTokenIterator stopping...reclaiming buffer");
+        IO_FREE(tokens->next);
+        tokens->next = NULL;
+        tokens->buffer_reclaim = false;
     }
     return tokens->stop;
 }
