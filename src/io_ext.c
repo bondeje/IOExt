@@ -254,6 +254,7 @@ char * LineIterator_next(LineIterator * lines) {
     }
 /*
 #if defined(_posix_) || defined(__STDC_ALLOC_LIB__)
+    // cannot use getline because it requires a malloc'd buffer
     if (getline(&lines->next, &lines->buffer_size, lines->handle) <= 0) {
         if (feof(lines->handle)) {
             lines->stop = ITERATOR_STOP;

@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-//#include "iterators.h"
 #include "cl_iterators.h"
 
 #ifndef IOEXT_H
